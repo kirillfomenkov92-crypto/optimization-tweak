@@ -13,7 +13,10 @@ from PyQt6.QtWidgets import (
 
 from app.ui.dashboard import Dashboard
 from app.ui.scan_page import ScanPage
+from app.ui.backups_page import BackupsPage
 from app.ui.widgets.tweak_panel import TweakPanel
+from app.ui.widgets.disk_panel import DiskPanel
+from app.ui.widgets.services_panel import ServicesPanel
 from app.modules.registry import RegistryModule
 from app.modules.startup import StartupModule
 from app.modules.services import ServicesModule
@@ -102,16 +105,12 @@ class MainWindow(QMainWindow):
     def _pages(self) -> List[Tuple[str, QWidget]]:
         reg = RegistryModule()
         startup = StartupModule()
-        services = ServicesModule()
-        disk = DiskModule()
         privacy = PrivacyModule()
         network = NetworkModule()
         power = PowerModule()
         memory = MemoryModule()
 
         startup_rows = [f"{r['name']} — {r.get('source','')}" for r in startup.scan()]
-        services_rows = [f"[{r['group']}] {r['display_name']} — {r['start_type']}" for r in services.scan()]
-        disk_rows = [f"{r['label']}: {r['size_mb']} МБ{'  ⚠' if r['warn'] else ''}" for r in disk.scan()]
         privacy_rows = [
             (f"твик: {r['name']} [{r.get('status','')}]" if r["kind"] == "tweak"
              else f"приложение: {r['name']}{'' if r.get('safe') else '  ⚠ осторожно'}")
@@ -134,8 +133,8 @@ class MainWindow(QMainWindow):
             ("🏠 Дашборд", Dashboard()),
             ("🔍 Сканирование", ScanPage()),
             ("🚀 Автозагрузка", _ModulePlaceholder("Автозагрузка", startup_rows)),
-            ("⚙️ Службы", _ModulePlaceholder("Службы", services_rows)),
-            ("💾 Очистка диска", _ModulePlaceholder("Очистка диска", disk_rows)),
+            ("⚙️ Службы", ServicesPanel()),
+            ("💾 Очистка диска", DiskPanel()),
             ("🌐 Сеть", _ModulePlaceholder("Сеть (TCP/IP)", net_rows)),
             ("⚡ Питание", _ModulePlaceholder("Питание", power_rows)),
             ("🧠 Память", _ModulePlaceholder("Память", memory_rows)),
@@ -145,6 +144,7 @@ class MainWindow(QMainWindow):
             ("🔒 Безопасность", _ModulePlaceholder("Безопасность", security_rows)),
             ("🕵️ Приватность", _ModulePlaceholder("Приватность и bloatware", privacy_rows)),
             ("📝 Реестр", TweakPanel(reg, "Реестр — твики")),
+            ("🗄️ Бэкапы", BackupsPage()),
         ]
 
     def _add_page(self, side_layout: QVBoxLayout, title: str, widget: QWidget) -> None:

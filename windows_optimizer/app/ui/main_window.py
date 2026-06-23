@@ -112,7 +112,30 @@ class MainWindow(QMainWindow):
             self._btn_group.buttons()[0].setChecked(True)
             self.stack.setCurrentIndex(0)
 
+        self.stack.currentChanged.connect(self._fade_in)
         self._apply_style()
+
+    def _fade_in(self, index: int) -> None:
+        """Плавное появление новой панели при переключении раздела."""
+        try:
+            from PyQt6.QtCore import QEasingCurve, QPropertyAnimation
+            from PyQt6.QtWidgets import QGraphicsOpacityEffect
+
+            widget = self.stack.widget(index)
+            if widget is None:
+                return
+            eff = QGraphicsOpacityEffect(widget)
+            widget.setGraphicsEffect(eff)
+            anim = QPropertyAnimation(eff, b"opacity", self)
+            anim.setDuration(200)
+            anim.setStartValue(0.0)
+            anim.setEndValue(1.0)
+            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            anim.finished.connect(lambda: widget.setGraphicsEffect(None))
+            anim.start()
+            self._fade_anim = anim  # удержать ссылку
+        except Exception:
+            pass
 
     def _pages(self) -> List[Tuple[str, QWidget]]:
         reg = RegistryModule()

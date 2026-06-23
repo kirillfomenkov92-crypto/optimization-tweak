@@ -126,6 +126,10 @@ QLabel#Subtitle {{ color: {c.TEXT_SECONDARY}; font-size: {Typography.SIZE_SM}px;
 
 #WorkArea {{ background-color: {c.BG_BASE}; }}
 
+/* Строки улучшений */
+#TweakRow {{ background-color: transparent; border-radius: {Radius.MD}px; }}
+#TweakRow:hover {{ background-color: {c.BG_SURFACE}; }}
+
 /* Карточки метрик */
 #MetricCard {{ background-color: {c.BG_SURFACE}; border: 1px solid {c.BORDER_DEFAULT}; border-radius: {Radius.LG}px; padding: 14px; }}
 #MetricValue {{ font-size: {Typography.SIZE_LG}px; font-weight: {Typography.WEIGHT_BOLD}; color: {c.TEXT_PRIMARY}; }}

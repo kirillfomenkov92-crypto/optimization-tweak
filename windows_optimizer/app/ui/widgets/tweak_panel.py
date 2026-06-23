@@ -1,24 +1,22 @@
-"""Интерактивная панель улучшений: человеческие названия, риск, режимы.
+"""Панель улучшений: список строк-тумблеров (TweakRow) + применение в фоне.
 
-Колонки: [✓] Улучшение · Что даёт · Риск · Статус.
-В простом режиме показываются только понятные безопасные/осторожные улучшения;
-галочка «Показать всё» открывает пункты «для опытных».
-Перед применением создаётся сохранение состояния системы (бэкап реестра).
+Тумблеры отражают желаемое состояние. Кнопка «Применить изменения» сравнивает
+их с текущим и включает/отключает только разницу — с предварительным
+сохранением состояния системы (бэкап реестра). Простой режим показывает только
+понятные безопасные улучшения; «Показать всё» открывает остальные.
 """
 from __future__ import annotations
 
 from typing import Dict, List
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QHBoxLayout, QHeaderView, QLabel, QPushButton,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QCheckBox, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
 from app.core import backup
 from app.ui.modes import mode_manager
-from app.ui.widgets.risk_badge import RiskLevel
+from app.ui.widgets.tweak_row import TweakRow
 from app.ui.widgets.worker import OperationWorker
 
 
@@ -26,6 +24,7 @@ class TweakPanel(QWidget):
     def __init__(self, provider, title: str) -> None:
         super().__init__()
         self.provider = provider
+        self._rows: List[TweakRow] = []
         self._worker = None
         self._build(title)
         self.refresh()
@@ -33,6 +32,7 @@ class TweakPanel(QWidget):
     def _build(self, title: str) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 24, 24, 24)
+        root.setSpacing(12)
         head = QLabel(title)
         head.setObjectName("Title")
         root.addWidget(head)
@@ -41,28 +41,23 @@ class TweakPanel(QWidget):
         self.show_all.stateChanged.connect(lambda _=0: self.refresh())
         root.addWidget(self.show_all)
 
-        self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["✓", "Улучшение", "Что даёт", "Риск", "Состояние"])
-        self.table.verticalHeader().setVisible(False)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self.table.setWordWrap(True)
-        hdr = self.table.horizontalHeader()
-        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        root.addWidget(self.table, 1)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.container = QWidget()
+        self.vbox = QVBoxLayout(self.container)
+        self.vbox.setContentsMargins(0, 0, 0, 0)
+        self.vbox.setSpacing(6)
+        self.scroll.setWidget(self.container)
+        root.addWidget(self.scroll, 1)
 
         btns = QHBoxLayout()
         self.btn_refresh = QPushButton("Проверить состояние")
-        self.btn_apply = QPushButton("Включить выбранные улучшения")
+        self.btn_apply = QPushButton("Применить изменения")
         self.btn_apply.setObjectName("Primary")
-        self.btn_revert = QPushButton("Отменить выбранные")
         self.btn_refresh.clicked.connect(self.refresh)
-        self.btn_apply.clicked.connect(self._apply_selected)
-        self.btn_revert.clicked.connect(self._revert_selected)
+        self.btn_apply.clicked.connect(self._apply)
         btns.addWidget(self.btn_refresh)
         btns.addStretch(1)
-        btns.addWidget(self.btn_revert)
         btns.addWidget(self.btn_apply)
         root.addLayout(btns)
 
@@ -71,87 +66,82 @@ class TweakPanel(QWidget):
         self.status.setWordWrap(True)
         root.addWidget(self.status)
 
-    def _visible_rows(self) -> List[Dict]:
+    def _visible(self) -> List[Dict]:
         rows = self.provider.scan()
-        simple = mode_manager().is_simple() and not self.show_all.isChecked()
-        if simple:
+        if mode_manager().is_simple() and not self.show_all.isChecked():
             rows = [r for r in rows
                     if r.get("simple_mode_visible", True) and r.get("risk_level", "safe") != "advanced"]
         return rows
 
     def refresh(self) -> None:
-        rows = self._visible_rows()
-        self.table.setRowCount(len(rows))
-        for i, r in enumerate(rows):
-            chk = QTableWidgetItem()
-            chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
-            chk.setCheckState(Qt.CheckState.Unchecked)
-            chk.setData(Qt.ItemDataRole.UserRole, r.get("id"))
-            self.table.setItem(i, 0, chk)
-            self.table.setItem(i, 1, QTableWidgetItem(r.get("friendly_name") or r.get("name", "")))
-            self.table.setItem(i, 2, QTableWidgetItem(r.get("user_benefit", "")))
-            _id, text, color, tip = RiskLevel.from_str(r.get("risk_level") or r.get("risk", "low"))
-            risk_item = QTableWidgetItem(text)
-            risk_item.setForeground(QColor(color))
-            risk_item.setToolTip(tip)
-            self.table.setItem(i, 3, risk_item)
-            self.table.setItem(i, 4, QTableWidgetItem(_status_ru(r.get("status", ""))))
-        self.table.resizeRowsToContents()
-        self.status.setText(f"Доступно улучшений: {len(rows)}. Перед применением сохраним состояние системы.")
+        # очистить
+        for i in reversed(range(self.vbox.count())):
+            w = self.vbox.itemAt(i).widget()
+            if w:
+                w.setParent(None)
+        self._rows.clear()
 
-    def _selected_ids(self) -> List[str]:
-        ids: List[str] = []
-        for i in range(self.table.rowCount()):
-            item = self.table.item(i, 0)
-            if item and item.checkState() == Qt.CheckState.Checked:
-                ids.append(item.data(Qt.ItemDataRole.UserRole))
-        return ids
+        rows = self._visible()
+        advanced = not mode_manager().is_simple()
+        if not rows:
+            empty = QLabel("✓\n\nВсё оптимизировано\nВ этом разделе больше нечего улучшать.")
+            empty.setObjectName("Subtitle")
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.vbox.addWidget(empty)
+            self.status.setText("Здесь всё в порядке.")
+            return
+
+        for r in rows:
+            row = TweakRow(r, advanced=advanced)
+            self._rows.append(row)
+            self.vbox.addWidget(row)
+        self.vbox.addStretch(1)
+        self.status.setText(f"Доступно улучшений: {len(rows)}. Переключите тумблеры и нажмите «Применить изменения».")
 
     def _set_busy(self, busy: bool) -> None:
-        for b in (self.btn_refresh, self.btn_apply, self.btn_revert):
-            b.setEnabled(not busy)
+        self.btn_refresh.setEnabled(not busy)
+        self.btn_apply.setEnabled(not busy)
 
-    def _apply_selected(self) -> None:
-        ids = self._selected_ids()
-        if not ids:
-            self.status.setText("Отметьте галочками улучшения, которые хотите включить.")
+    def _apply(self) -> None:
+        statuses = {r["id"]: r["status"] for r in self.provider.scan()}
+        to_enable, to_disable = [], []
+        for row in self._rows:
+            desired = row.is_on()
+            current_applied = statuses.get(row.tweak_id) == "applied"
+            if desired and not current_applied:
+                to_enable.append(row.tweak_id)
+            elif not desired and current_applied:
+                to_disable.append(row.tweak_id)
+
+        if not to_enable and not to_disable:
+            self.status.setText("Изменений нет — тумблеры совпадают с текущим состоянием.")
             return
-        self.status.setText("Сохраняю состояние системы и включаю улучшения…")
+
         self._set_busy(True)
+        self.status.setText("Сохраняю состояние системы и применяю изменения…")
 
         def job():
-            backup.create_backup("tweaks", hives=["HKLM", "HKCU"], applied_tweaks=ids)
-            return self.provider.apply_many(ids)
+            backup.create_backup("tweaks", hives=["HKLM", "HKCU"],
+                                 applied_tweaks=to_enable + to_disable)
+            res = {}
+            if to_enable:
+                res.update(self.provider.apply_many(to_enable))
+            if to_disable:
+                res.update(self.provider.revert_many(to_disable))
+            return res
 
-        self._run(job, "Включено")
-
-    def _revert_selected(self) -> None:
-        ids = self._selected_ids()
-        if not ids:
-            self.status.setText("Отметьте галочками то, что хотите отменить.")
-            return
-        self._set_busy(True)
-        self.status.setText("Отменяю выбранные изменения…")
-        self._run(lambda: self.provider.revert_many(ids), "Отменено")
-
-    def _run(self, fn, verb: str) -> None:
-        self._worker = OperationWorker(fn)
-        self._worker.finished_ok.connect(lambda res: self._done(res, verb))
+        self._worker = OperationWorker(job)
+        self._worker.finished_ok.connect(self._done)
         self._worker.failed.connect(self._error)
         self._worker.start()
 
-    def _done(self, result: Dict, verb: str) -> None:
+    def _done(self, result: Dict) -> None:
         ok = sum(1 for v in (result or {}).values() if v)
         total = len(result or {})
-        self.status.setText(f"{verb}: {ok} из {total}. Изменения можно отменить кнопкой «Отменить выбранные».")
+        self.status.setText(f"Готово: {ok} из {total}. Изменения можно отменить, вернув тумблеры и нажав «Применить».")
         self._set_busy(False)
         self.refresh()
 
     def _error(self, msg: str) -> None:
         self.status.setText(f"Не удалось: {msg}")
         self._set_busy(False)
-
-
-def _status_ru(status: str) -> str:
-    return {"applied": "включено", "default": "выключено",
-            "modified": "изменено вручную", "unknown": "—"}.get(status, status)

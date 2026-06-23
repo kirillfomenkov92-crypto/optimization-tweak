@@ -11,6 +11,11 @@ on:
     tags: [ 'v*' ]            # тег vX.Y.Z публикует версионный релиз
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Версия для релиза (например v1.0.0). Пусто — обычный прогон без релиза.'
+        required: false
+        default: ''
 
 permissions:
   contents: write   # нужно для публикации Release
@@ -109,25 +114,36 @@ jobs:
           path: Optimize-WeakPC.exe
           if-no-files-found: error
 
-      - name: Публикация в Releases (main -> app-latest, тег -> версия)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+      - name: Публикация в Releases (main -> app-latest; тег/ручной запуск -> версия)
+        if: >-
+          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
+          || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_version != '')
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ github.event.inputs.release_version }}
         run: |
-          if ($env:GITHUB_REF_TYPE -eq 'tag') {
-            $tag   = $env:GITHUB_REF_NAME                      # например v1.0.0
-            $title = "Optimize-WeakPC $tag"
-            $latest = $false
-          } else {
-            $tag   = 'app-latest'
-            $title = "Optimize-WeakPC (приложение, последняя сборка)"
-            $latest = $true
-          }
           $notes = "Готовый .exe приложения Optimize-WeakPC. При запуске запросит права администратора (UAC) и предложит режим: Проверка или Оптимизация."
-          gh release view $tag 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title "$title" --notes "$notes" --latest=$latest
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and $env:RELEASE_VERSION) {
+            # Ручной запуск с версией: создаём тег серверно (--target), без git-пуша.
+            $tag = $env:RELEASE_VERSION
+            $title = "Optimize-WeakPC $tag"
+            gh release view $tag 2>$null
+            if ($LASTEXITCODE -ne 0) {
+              gh release create $tag --target $env:GITHUB_SHA --title "$title" --notes "$notes"
+            }
+          }
+          elseif ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tag = $env:GITHUB_REF_NAME
+            $title = "Optimize-WeakPC $tag"
+            gh release view $tag 2>$null
+            if ($LASTEXITCODE -ne 0) { gh release create $tag --title "$title" --notes "$notes" }
+          }
+          else {
+            $tag = 'app-latest'
+            $title = "Optimize-WeakPC (приложение, последняя сборка)"
+            gh release view $tag 2>$null
+            if ($LASTEXITCODE -ne 0) { gh release create $tag --title "$title" --notes "$notes" }
           }
           gh release upload $tag .\Optimize-WeakPC.exe --clobber
           Write-Host "Релиз $tag обновлён."

@@ -1,0 +1,57 @@
+/* Тёмная тема Windows Optimizer Pro */
+QWidget {
+    background-color: #1a1a2e;
+    color: #eaeaea;
+    font-family: "Segoe UI", "Noto Sans", sans-serif;
+    font-size: 14px;
+}
+
+#Sidebar {
+    background-color: #16213e;
+    border: none;
+}
+
+#Sidebar QPushButton {
+    text-align: left;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #a8a8b3;
+}
+#Sidebar QPushButton:hover { background-color: #0f3460; color: #eaeaea; }
+#Sidebar QPushButton:checked {
+    background-color: #0f3460;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+#WorkArea { background-color: #1a1a2e; }
+
+QLabel#Title { font-size: 22px; font-weight: 700; color: #ffffff; }
+QLabel#Subtitle { color: #a8a8b3; }
+
+#MetricCard {
+    background-color: #0f3460;
+    border-radius: 12px;
+    padding: 14px;
+}
+#MetricValue { font-size: 26px; font-weight: 700; color: #ffffff; }
+#MetricLabel { color: #a8a8b3; }
+
+QPushButton#Primary {
+    background-color: #e94560;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-weight: 600;
+}
+QPushButton#Primary:hover { background-color: #ff5c77; }
+QPushButton#Primary:pressed { background-color: #c93651; }
+
+QStatusBar { background-color: #16213e; color: #a8a8b3; }
+
+QScrollBar:vertical { background: #16213e; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: #0f3460; border-radius: 5px; min-height: 24px; }
+QScrollBar::add-line, QScrollBar::sub-line { height: 0; }

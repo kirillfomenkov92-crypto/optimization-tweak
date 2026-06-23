@@ -1,0 +1,149 @@
+{
+  "version": "1.0",
+  "tweaks": [
+    {
+      "id": "disable_telemetry",
+      "category": "privacy",
+      "name": "Отключить телеметрию Windows (минимальный уровень)",
+      "description": "AllowTelemetry=0. В некоторых редакциях Windows всё равно отправляет базовую диагностику. Влияет на приватность, безопасно.",
+      "risk": "low",
+      "reboot_required": false,
+      "registry_changes": [
+        {
+          "hive": "HKLM",
+          "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+          "name": "AllowTelemetry",
+          "type": "REG_DWORD",
+          "value_optimized": 0,
+          "value_default": 1
+        }
+      ]
+    },
+    {
+      "id": "disable_advertising_id",
+      "category": "privacy",
+      "name": "Отключить рекламный идентификатор",
+      "description": "Запрещает приложениям использовать рекламный ID для профилирования.",
+      "risk": "low",
+      "reboot_required": false,
+      "registry_changes": [
+        {
+          "hive": "HKCU",
+          "path": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
+          "name": "Enabled",
+          "type": "REG_DWORD",
+          "value_optimized": 0,
+          "value_default": 1
+        }
+      ]
+    },
+    {
+      "id": "menu_show_delay",
+      "category": "performance",
+      "name": "Убрать задержку показа меню",
+      "description": "MenuShowDelay=0 — меню открываются мгновенно. Косметика отзывчивости интерфейса.",
+      "risk": "low",
+      "reboot_required": false,
+      "registry_changes": [
+        {
+          "hive": "HKCU",
+          "path": "Control Panel\\Desktop",
+          "name": "MenuShowDelay",
+          "type": "REG_SZ",
+          "value_optimized": "0",
+          "value_default": "400"
+        }
+      ]
+    },
+    {
+      "id": "disable_window_animations",
+      "category": "interface",
+      "name": "Отключить анимацию сворачивания окон",
+      "description": "MinAnimate=0 — быстрее на слабом GPU.",
+      "risk": "low",
+      "reboot_required": false,
+      "registry_changes": [
+        {
+          "hive": "HKCU",
+          "path": "Control Panel\\Desktop\\WindowMetrics",
+          "name": "MinAnimate",
+          "type": "REG_SZ",
+          "value_optimized": "0",
+          "value_default": "1"
+        }
+      ]
+    },
+    {
+      "id": "ntfs_disable_last_access",
+      "category": "performance",
+      "name": "Отключить обновление времени последнего доступа NTFS",
+      "description": "Снижает лишние записи на диск. Безопасно для большинства сценариев.",
+      "risk": "low",
+      "reboot_required": true,
+      "registry_changes": [
+        {
+          "hive": "HKLM",
+          "path": "SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+          "name": "NtfsDisableLastAccessUpdate",
+          "type": "REG_DWORD",
+          "value_optimized": 1,
+          "value_default": 0
+        }
+      ]
+    },
+    {
+      "id": "system_responsiveness_games",
+      "category": "gaming",
+      "name": "Максимум ресурсов переднему плану (SystemResponsiveness=0)",
+      "description": "Уменьшает резерв для фоновых мультимедиа-задач в пользу активного приложения/игры.",
+      "risk": "medium",
+      "reboot_required": true,
+      "registry_changes": [
+        {
+          "hive": "HKLM",
+          "path": "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
+          "name": "SystemResponsiveness",
+          "type": "REG_DWORD",
+          "value_optimized": 0,
+          "value_default": 20
+        }
+      ]
+    },
+    {
+      "id": "disable_gamebar_dvr",
+      "category": "gaming",
+      "name": "Отключить Xbox Game DVR (фоновая запись)",
+      "description": "Отключает фоновую запись Game Bar — снижает накладные расходы в играх.",
+      "risk": "low",
+      "reboot_required": false,
+      "registry_changes": [
+        {
+          "hive": "HKCU",
+          "path": "System\\GameConfigStore",
+          "name": "GameDVR_Enabled",
+          "type": "REG_DWORD",
+          "value_optimized": 0,
+          "value_default": 1
+        }
+      ]
+    },
+    {
+      "id": "network_throttling_off",
+      "category": "network",
+      "name": "Отключить ограничение сети для мультимедиа",
+      "description": "NetworkThrottlingIndex=0xFFFFFFFF снимает дроссель сетевого трафика.",
+      "risk": "medium",
+      "reboot_required": true,
+      "registry_changes": [
+        {
+          "hive": "HKLM",
+          "path": "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
+          "name": "NetworkThrottlingIndex",
+          "type": "REG_DWORD",
+          "value_optimized": 4294967295,
+          "value_default": 10
+        }
+      ]
+    }
+  ]
+}

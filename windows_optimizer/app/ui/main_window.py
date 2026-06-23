@@ -14,9 +14,11 @@ from PyQt6.QtWidgets import (
 from app.ui.dashboard import Dashboard
 from app.ui.scan_page import ScanPage
 from app.ui.backups_page import BackupsPage
+from app.ui.about_page import AboutPage
 from app.ui.widgets.tweak_panel import TweakPanel
 from app.ui.widgets.disk_panel import DiskPanel
 from app.ui.widgets.services_panel import ServicesPanel
+from app.ui.widgets.action_panel import ActionPanel
 from app.modules.registry import RegistryModule
 from app.modules.startup import StartupModule
 from app.modules.services import ServicesModule
@@ -116,7 +118,6 @@ class MainWindow(QMainWindow):
              else f"приложение: {r['name']}{'' if r.get('safe') else '  ⚠ осторожно'}")
             for r in privacy.scan()
         ]
-        net_rows = [f"[{r['status']}] {r['name']} — {r['description']}" for r in network.scan()]
         power_rows = [f"{'● ' if r['active'] else '○ '}{r['name']}" for r in power.scan()]
         memory_rows = [f"{r['item']}: {r['value']}" for r in memory.scan()]
 
@@ -124,7 +125,6 @@ class MainWindow(QMainWindow):
         gpu = GpuModule()
         cpu = CpuModule()
         security = SecurityModule()
-        gaming_rows = [f"[{r['status']}] {r['name']} — {r['description']}" for r in gaming.scan()]
         gpu_rows = [f"{r['item']}: {r['value']}" for r in gpu.scan()]
         cpu_rows = [f"{r['item']}: {r['value']}" for r in cpu.scan()]
         security_rows = [f"{r['item']}: {r['value']}" for r in security.scan()]
@@ -135,16 +135,20 @@ class MainWindow(QMainWindow):
             ("🚀 Автозагрузка", _ModulePlaceholder("Автозагрузка", startup_rows)),
             ("⚙️ Службы", ServicesPanel()),
             ("💾 Очистка диска", DiskPanel()),
-            ("🌐 Сеть", _ModulePlaceholder("Сеть (TCP/IP)", net_rows)),
+            ("🌐 Сеть", ActionPanel("Сеть (TCP/IP)", network.scan, network.apply_tcp_tweaks,
+                                     "Применить TCP-твики",
+                                     hint="DNS-профили и ping доступны в модуле network.")),
             ("⚡ Питание", _ModulePlaceholder("Питание", power_rows)),
             ("🧠 Память", _ModulePlaceholder("Память", memory_rows)),
-            ("🎮 Игры", _ModulePlaceholder("Игровая оптимизация", gaming_rows)),
+            ("🎮 Игры", ActionPanel("Игровая оптимизация", gaming.scan, gaming.apply_all,
+                                     "Применить игровые твики")),
             ("🖥️ GPU", _ModulePlaceholder("GPU", gpu_rows)),
             ("🖧 CPU", _ModulePlaceholder("CPU", cpu_rows)),
             ("🔒 Безопасность", _ModulePlaceholder("Безопасность", security_rows)),
             ("🕵️ Приватность", _ModulePlaceholder("Приватность и bloatware", privacy_rows)),
             ("📝 Реестр", TweakPanel(reg, "Реестр — твики")),
             ("🗄️ Бэкапы", BackupsPage()),
+            ("❓ О программе", AboutPage()),
         ]
 
     def _add_page(self, side_layout: QVBoxLayout, title: str, widget: QWidget) -> None:

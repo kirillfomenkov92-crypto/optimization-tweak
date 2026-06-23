@@ -8,9 +8,8 @@ name: CI (проверка на Windows)
 on:
   push:
     branches: [ main, 'claude/**' ]
-    paths: [ 'Optimize-WeakPC.ps1', '.github/workflows/ci.yml' ]
+    tags: [ 'v*' ]            # тег vX.Y.Z публикует версионный релиз
   pull_request:
-    paths: [ 'Optimize-WeakPC.ps1', '.github/workflows/ci.yml' ]
   workflow_dispatch:
 
 permissions:
@@ -93,6 +92,7 @@ jobs:
           Invoke-ps2exe `
             -inputFile  .\Optimize-WeakPC.ps1 `
             -outputFile .\Optimize-WeakPC.exe `
+            -iconFile   .\assets\app.ico `
             -requireAdmin `
             -title 'Optimize WeakPC' `
             -product 'Optimize-WeakPC' `
@@ -109,17 +109,25 @@ jobs:
           path: Optimize-WeakPC.exe
           if-no-files-found: error
 
-      - name: Публикация в Releases (только main)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Публикация в Releases (main -> app-latest, тег -> версия)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag = 'app-latest'
-          $notes = "Готовый .exe приложения Optimize-WeakPC. При запуске запросит права администратора (UAC) и предложит режим: Проверка или Оптимизация. Собрано автоматически из последней версии main."
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tag   = $env:GITHUB_REF_NAME                      # например v1.0.0
+            $title = "Optimize-WeakPC $tag"
+            $latest = $false
+          } else {
+            $tag   = 'app-latest'
+            $title = "Optimize-WeakPC (приложение, последняя сборка)"
+            $latest = $true
+          }
+          $notes = "Готовый .exe приложения Optimize-WeakPC. При запуске запросит права администратора (UAC) и предложит режим: Проверка или Оптимизация."
           gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title "Optimize-WeakPC (приложение)" --notes "$notes"
+            gh release create $tag --title "$title" --notes "$notes" --latest=$latest
           }
           gh release upload $tag .\Optimize-WeakPC.exe --clobber
           Write-Host "Релиз $tag обновлён."

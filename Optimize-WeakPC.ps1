@@ -1,4 +1,4 @@
-﻿<#
+﻿﻿<#
 =====================================================================
  Optimize-WeakPC.ps1
  Самостоятельный скрипт оптимизации слабого ПК на Windows 10/11.
@@ -15,6 +15,8 @@
 =====================================================================
 #>
 
+#Requires -Version 5.1
+
 [CmdletBinding()]
 param(
     # -DryRun: пройти весь скрипт, показать "БЫЛО БЫ ИЗМЕНЕНО: ...",
@@ -27,6 +29,8 @@ param(
 
 # Жёсткая остановка при необработанной ошибке выполнения команд.
 $ErrorActionPreference = 'Stop'
+# Прогресс-бары отдельных командлетов лишь засоряют вывод — отключаем.
+$ProgressPreference = 'SilentlyContinue'
 
 # Принудительно переводим вывод консоли в UTF-8, иначе в legacy-консоли
 # (Windows PowerShell 5.1 + кодовая страница 866/1251) кириллица в Write-Host
@@ -38,12 +42,17 @@ try {
 } catch { }
 
 # Каталог и файл лога. Имя файла содержит дату/время запуска.
-$LogDir  = 'C:\OptimizeLog'
-$LogFile = Join-Path $LogDir ("optimize_{0}.log" -f (Get-Date -Format 'yyyy-MM-dd_HHmmss'))
-
-if (-not (Test-Path $LogDir)) {
-    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+# Если прав на C:\ нет (обычный пользователь до повышения) — пишем во временную папку,
+# иначе скрипт упал бы здесь раньше, чем сработало бы автоповышение прав.
+$LogDir = 'C:\OptimizeLog'
+try {
+    if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force -ErrorAction Stop | Out-Null }
 }
+catch {
+    $LogDir = Join-Path $env:TEMP 'OptimizeLog'
+    if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
+}
+$LogFile = Join-Path $LogDir ("optimize_{0}.log" -f (Get-Date -Format 'yyyy-MM-dd_HHmmss'))
 
 # Функция логирования: пишет в файл и в консоль с уровнем важности.
 # Сбой записи в лог НЕ должен ронять весь скрипт, поэтому пишем мягко.
@@ -83,10 +92,27 @@ $principal = New-Object Security.Principal.WindowsPrincipal(
 $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
-    Write-Log "Скрипт запущен БЕЗ прав администратора. Остановка." 'ERROR'
-    Write-Host ""
-    Write-Host "Запустите PowerShell от имени администратора и повторите." -ForegroundColor Red
-    exit 1
+    Write-Log "Нет прав администратора — пробую перезапуститься с повышением (UAC)." 'WARN'
+    # Без пути к файлу скрипта (например, при запуске из конвейера) перезапуск невозможен.
+    if (-not $PSCommandPath) {
+        Write-Log "Не удалось определить путь скрипта для перезапуска." 'ERROR'
+        Write-Host "Запустите PowerShell от имени администратора и повторите." -ForegroundColor Red
+        exit 1
+    }
+    try {
+        # Перезапускаем себя элевированно, сохраняя режим -DryRun.
+        $relaunchArgs = @('-NoProfile','-ExecutionPolicy','Bypass','-File', "`"$PSCommandPath`"")
+        if ($DryRun) { $relaunchArgs += '-DryRun' }
+        Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $relaunchArgs | Out-Null
+        Write-Log "Запущена копия с повышением прав. Текущий (обычный) процесс завершается." 'INFO'
+        exit 0
+    }
+    catch {
+        Write-Log "Повышение прав отклонено или не удалось: $($_.Exception.Message)" 'ERROR'
+        Write-Host ""
+        Write-Host "Запустите PowerShell от имени администратора и повторите." -ForegroundColor Red
+        exit 1
+    }
 }
 Write-Log "Права администратора подтверждены." 'OK'
 
@@ -123,11 +149,13 @@ try {
     }
 
     # --- Процессор ---
-    # Берём первый сокет (для типичного ПК он один).
-    $cpu        = Get-CimInstance Win32_Processor | Select-Object -First 1
+    # Имя берём с первого сокета, ядра/потоки СУММИРУЕМ по всем сокетам
+    # (на серверах их может быть несколько — иначе число занижалось бы).
+    $cpus       = @(Get-CimInstance Win32_Processor)
+    $cpu        = $cpus | Select-Object -First 1
     $CpuName    = if ($cpu -and $cpu.Name) { $cpu.Name.Trim() } else { 'неизвестно' }
-    $CpuCores   = if ($cpu) { [int]$cpu.NumberOfCores } else { 0 }
-    $CpuThreads = if ($cpu) { [int]$cpu.NumberOfLogicalProcessors } else { 0 }
+    $CpuCores   = [int](($cpus | Measure-Object -Property NumberOfCores -Sum).Sum)
+    $CpuThreads = [int](($cpus | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum)
 
     # --- Диски: тип HDD / SSD ---
     # Get-PhysicalDisk.MediaType: 'HDD'(3), 'SSD'(4), 'SCM'(5), 'Unspecified'(0).
@@ -270,10 +298,11 @@ else {
         Write-Log "  SystemRestorePointCreationFrequency: было '$origFreq' -> временно '0'  # будет восстановлено" 'INFO'
         New-ItemProperty -Path $sr -Name 'SystemRestorePointCreationFrequency' -PropertyType DWord -Value 0 -Force | Out-Null
 
+        # Запоминаем число существующих точек, чтобы потом убедиться в появлении новой.
+        $rpBefore = @(Get-ComputerRestorePoint -ErrorAction SilentlyContinue).Count
         try {
             Checkpoint-Computer -Description "Optimize-WeakPC (до оптимизации)" `
                 -RestorePointType 'MODIFY_SETTINGS' -ErrorAction Stop
-            Write-Log "Точка восстановления успешно создана." 'OK'
         }
         finally {
             # Возвращаем исходный лимит частоты (откат сайд-эффекта).
@@ -284,6 +313,15 @@ else {
                 New-ItemProperty -Path $sr -Name 'SystemRestorePointCreationFrequency' -PropertyType DWord -Value $origFreq -Force | Out-Null
                 Write-Log "  SystemRestorePointCreationFrequency восстановлен в '$origFreq'." 'INFO'
             }
+        }
+
+        # КРИТИЧНО: Checkpoint-Computer может вернуть успех, но НЕ создать точку
+        # (системный троттлинг/политика). Проверяем фактическое появление точки.
+        $rpAfter = @(Get-ComputerRestorePoint -ErrorAction SilentlyContinue).Count
+        if ($rpAfter -gt $rpBefore) {
+            Write-Log "Точка восстановления создана и проверена (точек: $rpBefore -> $rpAfter)." 'OK'
+        } else {
+            throw "Checkpoint-Computer не создал новую точку (защита системы отключена или сработал троттлинг)."
         }
     }
     catch {
@@ -546,9 +584,7 @@ if ($WeakGpu) {
     Set-RegistryValue -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' `
         -Name 'EnableTransparency' -Value 0 -Type DWord -Comment 'Отключить прозрачность интерфейса'
 
-    # Глобальное отключение анимаций интерфейса для слабого GPU.
-    Set-RegistryValue -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects' `
-        -Name 'VisualFXSetting' -Value 2 -Type DWord -Comment 'Быстродействие вместо красоты (GPU)'
+    # (VisualFXSetting=2 уже выставлен в базовой секции 5 — не дублируем.)
 
     # Анимация при сворачивании/разворачивании окон.
     Set-RegistryValue -Path 'HKCU:\Control Panel\Desktop\WindowMetrics' `
@@ -564,23 +600,26 @@ else {
 
 # Перезапуск explorer.exe нужен, чтобы изменения VisualFX/прозрачности/анимаций
 # вступили в силу немедленно (иначе — только после перелогина).
-$visualChanged = $true  # мы всегда трогаем минимум VisualFXSetting
-if ($visualChanged) {
-    if ($DryRun) {
-        Write-Log "[DryRun] БЫЛО БЫ ВЫПОЛНЕНО: перезапуск explorer.exe для применения визуальных настроек." 'DRY'
-    } else {
-        try {
-            Write-Log "Перезапуск explorer.exe для применения визуальных настроек..." 'INFO'
-            Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 1
-            # Windows обычно сам поднимает explorer; на всякий случай запускаем явно.
-            if (-not (Get-Process -Name explorer -ErrorAction SilentlyContinue)) {
-                Start-Process explorer.exe
-            }
-            Write-Log "explorer.exe перезапущен." 'OK'
+# Делаем это ТОЛЬКО в интерактивной сессии: в фоне (планировщик, SSH) убивать
+# оболочку бессмысленно — настройки применятся при следующем входе пользователя.
+if (-not [Environment]::UserInteractive) {
+    Write-Log "Неинтерактивная сессия — explorer.exe не перезапускаем (применится при входе)." 'INFO'
+}
+elseif ($DryRun) {
+    Write-Log "[DryRun] БЫЛО БЫ ВЫПОЛНЕНО: перезапуск explorer.exe для применения визуальных настроек." 'DRY'
+}
+else {
+    try {
+        Write-Log "Перезапуск explorer.exe для применения визуальных настроек..." 'INFO'
+        Get-Process -Name explorer -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+        # Windows обычно сам поднимает explorer; на всякий случай запускаем явно.
+        if (-not (Get-Process -Name explorer -ErrorAction SilentlyContinue)) {
+            Start-Process explorer.exe
         }
-        catch { Write-Log "Не удалось перезапустить explorer.exe: $($_.Exception.Message)" 'WARN' }
+        Write-Log "explorer.exe перезапущен." 'OK'
     }
+    catch { Write-Log "Не удалось перезапустить explorer.exe: $($_.Exception.Message)" 'WARN' }
 }
 
 if ($DryRun) {

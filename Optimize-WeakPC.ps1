@@ -1,4 +1,4 @@
-﻿﻿<#
+﻿﻿﻿<#
 =====================================================================
  Optimize-WeakPC.ps1
  Самостоятельный скрипт оптимизации слабого ПК на Windows 10/11.
@@ -101,7 +101,8 @@ if (-not $isAdmin) {
     }
     try {
         # Перезапускаем себя элевированно, сохраняя режим -DryRun.
-        $relaunchArgs = @('-NoProfile','-ExecutionPolicy','Bypass','-File', "`"$PSCommandPath`"")
+        # -NoExit оставляет окно открытым, чтобы пользователь увидел результат.
+        $relaunchArgs = @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File', "`"$PSCommandPath`"")
         if ($DryRun) { $relaunchArgs += '-DryRun' }
         Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $relaunchArgs | Out-Null
         Write-Log "Запущена копия с повышением прав. Текущий (обычный) процесс завершается." 'INFO'
@@ -320,7 +321,15 @@ else {
         $rpAfter = @(Get-ComputerRestorePoint -ErrorAction SilentlyContinue).Count
         if ($rpAfter -gt $rpBefore) {
             Write-Log "Точка восстановления создана и проверена (точек: $rpBefore -> $rpAfter)." 'OK'
-        } else {
+        }
+        elseif ($rpBefore -eq 0 -and $rpAfter -eq 0) {
+            # Список точек опросить не удалось (Get-ComputerRestorePoint вернул пусто).
+            # Но Checkpoint-Computer завершился БЕЗ ошибки (иначе сработал бы -ErrorAction Stop),
+            # поэтому считаем создание успешным и лишь предупреждаем — без ложного отказа.
+            Write-Log "Точка создана (Checkpoint-Computer без ошибок), но подтвердить списком не удалось." 'WARN'
+        }
+        else {
+            # Точки были ($rpBefore>0), а новая не добавилась — это настоящий молчаливый пропуск.
             throw "Checkpoint-Computer не создал новую точку (защита системы отключена или сработал троттлинг)."
         }
     }

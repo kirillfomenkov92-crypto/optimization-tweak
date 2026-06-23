@@ -1,0 +1,76 @@
+name: CI (проверка на Windows)
+
+# Реальная проверка скрипта на настоящем Windows-раннере:
+#  1) синтаксический разбор парсером PowerShell;
+#  2) статический анализ PSScriptAnalyzer (падаем на ошибках);
+#  3) дымовой прогон самого скрипта с -DryRun (ничего не меняет).
+
+on:
+  push:
+    branches: [ main, 'claude/**' ]
+    paths: [ 'Optimize-WeakPC.ps1', '.github/workflows/ci.yml' ]
+  pull_request:
+    paths: [ 'Optimize-WeakPC.ps1', '.github/workflows/ci.yml' ]
+  workflow_dispatch:
+
+jobs:
+  check-on-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Синтаксический разбор (Parser)
+        shell: pwsh
+        run: |
+          $path = Join-Path $PWD 'Optimize-WeakPC.ps1'
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)
+          if ($errors -and $errors.Count -gt 0) {
+            foreach ($e in $errors) {
+              Write-Host "::error file=Optimize-WeakPC.ps1,line=$($e.Extent.StartLineNumber)::$($e.Message)"
+            }
+            throw "Найдено синтаксических ошибок: $($errors.Count)"
+          }
+          Write-Host "Синтаксис OK — ошибок парсинга нет."
+
+      - name: Установка PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          Import-Module PSScriptAnalyzer
+
+      - name: Статический анализ (PSScriptAnalyzer)
+        shell: pwsh
+        run: |
+          # Write-Host для цветного вывода — намеренный выбор, поэтому это правило не считаем.
+          $res = Invoke-ScriptAnalyzer -Path .\Optimize-WeakPC.ps1 `
+                   -Severity Error,Warning `
+                   -ExcludeRule PSAvoidUsingWriteHost
+          if ($res) { $res | Format-Table -AutoSize | Out-String | Write-Host }
+          $errors = @($res | Where-Object Severity -eq 'Error')
+          foreach ($r in $res) {
+            $lvl = if ($r.Severity -eq 'Error') { 'error' } else { 'warning' }
+            Write-Host "::$lvl file=Optimize-WeakPC.ps1,line=$($r.Line)::[$($r.RuleName)] $($r.Message)"
+          }
+          if ($errors.Count -gt 0) { throw "PSScriptAnalyzer: ошибок $($errors.Count)" }
+          Write-Host "Статический анализ пройден (ошибок уровня Error нет)."
+
+      - name: Дымовой прогон -DryRun (ничего не меняет)
+        shell: pwsh
+        run: |
+          # Раннер windows-latest работает с правами администратора, -DryRun
+          # не создаёт точку восстановления и не вносит никаких изменений.
+          $ErrorActionPreference = 'Stop'
+          & powershell -NoProfile -ExecutionPolicy Bypass -File .\Optimize-WeakPC.ps1 -DryRun
+          if ($LASTEXITCODE -ne 0) { throw "Скрипт завершился с кодом $LASTEXITCODE" }
+          Write-Host "Дымовой прогон -DryRun завершён успешно."
+
+      - name: Загрузка лога как артефакта
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimize-dryrun-log
+          path: C:\OptimizeLog\*.log
+          if-no-files-found: ignore

@@ -175,8 +175,20 @@ class MainWindow(QMainWindow):
         self.set_theme(getattr(self, "_theme", "dark"))
 
     def set_theme(self, name: str) -> None:
-        """Переключить тему ('dark'|'light') без перезапуска."""
+        """Переключить тему ('dark'|'light') без перезапуска.
+
+        QSS генерируется из дизайн-токенов (единый источник). При сбое —
+        фолбэк на статический .qss-файл.
+        """
         self._theme = name if name in ("dark", "light") else "dark"
+        try:
+            from app.ui.styles.design_tokens import Colors, ColorsLight, build_qss
+
+            palette = Colors if self._theme == "dark" else ColorsLight
+            self.setStyleSheet(build_qss(palette))
+            return
+        except Exception:
+            pass
         qss = _STYLES_DIR / f"{self._theme}_theme.qss"
         try:
             if qss.exists():

@@ -20,6 +20,10 @@ from app.modules.privacy import PrivacyModule
 from app.modules.network import NetworkModule
 from app.modules.power import PowerModule
 from app.modules.memory import MemoryModule
+from app.modules.gaming import GamingModule
+from app.modules.gpu import GpuModule
+from app.modules.cpu import CpuModule
+from app.modules.security import SecurityModule
 
 _STYLE = Path(__file__).resolve().parent / "styles" / "dark_theme.qss"
 _ICON = Path(__file__).resolve().parents[2] / "resources" / "icons" / "app.ico"
@@ -116,6 +120,15 @@ class MainWindow(QMainWindow):
         power_rows = [f"{'● ' if r['active'] else '○ '}{r['name']}" for r in power.scan()]
         memory_rows = [f"{r['item']}: {r['value']}" for r in memory.scan()]
 
+        gaming = GamingModule()
+        gpu = GpuModule()
+        cpu = CpuModule()
+        security = SecurityModule()
+        gaming_rows = [f"[{r['status']}] {r['name']} — {r['description']}" for r in gaming.scan()]
+        gpu_rows = [f"{r['item']}: {r['value']}" for r in gpu.scan()]
+        cpu_rows = [f"{r['item']}: {r['value']}" for r in cpu.scan()]
+        security_rows = [f"{r['item']}: {r['value']}" for r in security.scan()]
+
         return [
             ("🏠 Дашборд", Dashboard()),
             ("🚀 Автозагрузка", _ModulePlaceholder("Автозагрузка", startup_rows)),
@@ -124,6 +137,10 @@ class MainWindow(QMainWindow):
             ("🌐 Сеть", _ModulePlaceholder("Сеть (TCP/IP)", net_rows)),
             ("⚡ Питание", _ModulePlaceholder("Питание", power_rows)),
             ("🧠 Память", _ModulePlaceholder("Память", memory_rows)),
+            ("🎮 Игры", _ModulePlaceholder("Игровая оптимизация", gaming_rows)),
+            ("🖥️ GPU", _ModulePlaceholder("GPU", gpu_rows)),
+            ("🖧 CPU", _ModulePlaceholder("CPU", cpu_rows)),
+            ("🔒 Безопасность", _ModulePlaceholder("Безопасность", security_rows)),
             ("🕵️ Приватность", _ModulePlaceholder("Приватность и bloatware", privacy_rows)),
             ("📝 Реестр", _ModulePlaceholder("Реестр", reg_rows)),
         ]

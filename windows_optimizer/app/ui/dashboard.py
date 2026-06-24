@@ -137,7 +137,8 @@ class Dashboard(QWidget):
             ("Включаем безопасные улучшения…", self._step_apply_safe),
             ("Очищаем временные файлы…", self._step_clean_temp),
         ]
-        self._worker = StepWorker(steps)
+        # stop_on_error: если бэкап не удался — не применяем остальные шаги.
+        self._worker = StepWorker(steps, stop_on_error=True)
         self._worker.step.connect(self._overlay.set_progress)
         self._worker.step_done.connect(self._overlay.mark_done)
         self._worker.finished_ok.connect(self._optimize_done)

@@ -41,13 +41,19 @@ def create_backup(services: Optional[List[str]] = None) -> Path:
 
     # Состояние служб (тип запуска)
     services_state: Dict[str, str] = {}
+    _KEYWORDS = ("BOOT_START", "SYSTEM_START", "AUTO_START", "DEMAND_START", "DISABLED")
     if IS_WINDOWS and services:
         for name in services:
             try:
-                cp = subprocess.run(["sc", "qc", name], capture_output=True, text=True)
+                cp = subprocess.run(["sc", "qc", name], capture_output=True, text=True, timeout=30)
                 for line in cp.stdout.splitlines():
                     if "START_TYPE" in line:
-                        services_state[name] = line.split(":")[-1].strip()
+                        # Строка вида "START_TYPE : 2  AUTO_START" — берём ключевое слово,
+                        # а не "2  AUTO_START", иначе откат не распознает исходный тип.
+                        tail = line.split(":", 1)[-1]
+                        kw = next((t for t in tail.split() if t in _KEYWORDS), "")
+                        if kw:
+                            services_state[name] = kw
                         break
             except Exception:
                 continue

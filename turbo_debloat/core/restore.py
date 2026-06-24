@@ -41,8 +41,10 @@ def restore(backup_path: Path, dry_run: bool = False) -> Dict:
         except Exception:
             state = {}
         for name, start in state.items():
-            mode = {"AUTO_START": "auto", "DEMAND_START": "demand", "DISABLED": "disabled"}.get(
-                str(start).replace(" ", "").upper(), "auto")
+            mode = {
+                "AUTO_START": "auto", "BOOT_START": "auto", "SYSTEM_START": "auto",
+                "DEMAND_START": "demand", "DISABLED": "disabled",
+            }.get(str(start).strip().upper(), "auto")
             actions.append(f"sc config {name} start= {mode}")
             if not dry_run and IS_WINDOWS:
                 try:

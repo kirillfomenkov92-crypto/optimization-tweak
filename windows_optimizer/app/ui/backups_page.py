@@ -30,17 +30,21 @@ class BackupsPage(QWidget):
         self.btn_rp = QPushButton("Создать точку восстановления")
         self.btn_rp.setObjectName("Primary")
         self.btn_reg = QPushButton("Бэкап реестра сейчас")
+        self.btn_restore = QPushButton("Восстановить выбранный")
         self.btn_refresh = QPushButton("Обновить список")
         self.btn_rp.clicked.connect(self._make_rp)
         self.btn_reg.clicked.connect(self._make_reg)
+        self.btn_restore.clicked.connect(self._restore_selected)
         self.btn_refresh.clicked.connect(self.refresh)
         btns.addWidget(self.btn_rp)
         btns.addWidget(self.btn_reg)
         btns.addStretch(1)
+        btns.addWidget(self.btn_restore)
         btns.addWidget(self.btn_refresh)
         root.addLayout(btns)
 
         self.list = QListWidget()
+        self._paths: List[str] = []
         root.addWidget(self.list, 1)
 
         self.status = QLabel("")
@@ -50,14 +54,36 @@ class BackupsPage(QWidget):
 
     def refresh(self) -> None:
         self.list.clear()
+        self._paths = []
         items: List[Dict] = backup.list_backups()
         for it in items:
+            self._paths.append(it.get("path", ""))
             self.list.addItem(f"{it.get('timestamp','?')} — {it.get('name','')} "
                               f"(реестр: {len(it.get('registry_files', []))} файлов)")
         self.status.setText(f"Бэкапов: {len(items)}")
 
+    def _restore_selected(self) -> None:
+        row = self.list.currentRow()
+        if row < 0 or row >= len(self._paths):
+            self.status.setText("Выберите бэкап в списке.")
+            return
+        self._busy(True)
+        self.status.setText("Восстанавливаю из бэкапа…")
+        self._worker = OperationWorker(backup.restore_backup, self._paths[row])
+        self._worker.finished_ok.connect(self._restored)
+        self._worker.failed.connect(self._error)
+        self._worker.start()
+
+    def _restored(self, res: Dict) -> None:
+        if res.get("ok"):
+            self.status.setText(f"Восстановлено файлов реестра: {len(res.get('imported', []))}. "
+                                f"Рекомендуется перезагрузка.")
+        else:
+            self.status.setText(f"Восстановление с ошибками: {'; '.join(res.get('errors', [])) or 'нет данных'}")
+        self._busy(False)
+
     def _busy(self, busy: bool) -> None:
-        for b in (self.btn_rp, self.btn_reg, self.btn_refresh):
+        for b in (self.btn_rp, self.btn_reg, self.btn_restore, self.btn_refresh):
             b.setEnabled(not busy)
 
     def _make_rp(self) -> None:

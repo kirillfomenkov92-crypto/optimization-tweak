@@ -38,9 +38,10 @@ class StepWorker(QThread):
     finished_ok = pyqtSignal(dict)     # сводка результатов
     failed = pyqtSignal(str)
 
-    def __init__(self, steps) -> None:
+    def __init__(self, steps, stop_on_error: bool = False) -> None:
         super().__init__()
         self._steps = list(steps)
+        self._stop_on_error = stop_on_error
 
     def run(self) -> None:
         results = {}
@@ -52,6 +53,11 @@ class StepWorker(QThread):
                     results[label] = fn()
                 except Exception as e:  # pragma: no cover
                     results[label] = e
+                    # Критический сбой (например, не удалось сделать бэкап) —
+                    # прерываем выполнение, чтобы не менять систему без отката.
+                    if self._stop_on_error:
+                        self.failed.emit(str(e))
+                        return
                 self.step_done.emit(label)
             self.step.emit("Готово!", 100)
             self.finished_ok.emit(results)

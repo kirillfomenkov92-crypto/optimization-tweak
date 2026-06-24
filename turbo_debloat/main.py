@@ -69,6 +69,11 @@ def main(argv=None) -> int:
         return 0
 
     dry = not args.apply
+    if not dry:
+        from turbo_debloat.core.admin import is_admin, IS_WINDOWS
+        if IS_WINDOWS and not is_admin():
+            print("Для применения нужны права администратора. Запустите от имени администратора.")
+            return 1
     if not dry and not args.yes:
         print("ВНИМАНИЕ: будут применены изменения. Удалённые приложения не восстановятся.")
         print("Бэкап реестра/служб/hosts создаётся автоматически. Продолжить? [y/N] ", end="")
@@ -86,6 +91,11 @@ def main(argv=None) -> int:
 
 
 def _run_gui() -> int:
+    # Повышаем права (UAC) — без них реальное применение не сработает.
+    from turbo_debloat.core.admin import is_admin, run_as_admin, IS_WINDOWS
+    if IS_WINDOWS and not is_admin():
+        if run_as_admin(["--gui"]):
+            return 0
     try:
         from PyQt6.QtWidgets import QApplication
     except Exception as e:

@@ -26,8 +26,8 @@ def _ensure_dir() -> Path:
     return _BACKUP_DIR
 
 
-def _run(cmd: List[str]) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, capture_output=True, text=True, shell=False)
+def _run(cmd: List[str], timeout: int = 120) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, capture_output=True, text=True, shell=False, timeout=timeout)
 
 
 def export_registry_hive(hive: str, out_path: Path) -> bool:
@@ -79,6 +79,12 @@ def create_backup(name: str, hives: Optional[List[str]] = None,
         if export_registry_hive(hive, out):
             reg_files.append(out.name)
 
+    # КРИТИЧНО: если запрашивали экспорт реестра, но НИ ОДИН не удался —
+    # это «пустышка». Бросаем исключение, чтобы вызывающий код остановил
+    # применение твиков (бэкап обязателен перед изменениями).
+    if IS_WINDOWS and hives and not reg_files:
+        raise RuntimeError("Бэкап реестра не создан — применение остановлено ради безопасности.")
+
     meta = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "version": "1.0",
@@ -93,6 +99,29 @@ def create_backup(name: str, hives: Optional[List[str]] = None,
     )
     _log.info("Бэкап создан: %s", folder)
     return folder
+
+
+def restore_backup(folder: Path) -> Dict:
+    """Восстановить систему из бэкапа: импорт сохранённых веток реестра.
+
+    Возвращает {ok, imported, errors}. Службы/сетевые твики, чьи значения
+    лежат в HKLM, восстанавливаются вместе с реестром (reg import).
+    """
+    folder = Path(folder)
+    imported, errors = [], []
+    if not IS_WINDOWS:
+        return {"ok": False, "imported": [], "errors": ["только Windows"]}
+    for reg_file in sorted(folder.glob("*.reg")):
+        try:
+            cp = _run(["reg", "import", str(reg_file)])
+            if cp.returncode == 0:
+                imported.append(reg_file.name)
+                _log.info("Восстановлено из %s", reg_file.name)
+            else:
+                errors.append(f"{reg_file.name}: {cp.stderr.strip()}")
+        except Exception as e:  # pragma: no cover
+            errors.append(f"{reg_file.name}: {e}")
+    return {"ok": not errors and bool(imported), "imported": imported, "errors": errors}
 
 
 def list_backups() -> List[Dict]:

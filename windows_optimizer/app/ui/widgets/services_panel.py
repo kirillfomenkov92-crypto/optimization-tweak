@@ -91,9 +91,13 @@ class ServicesPanel(QWidget):
             return
         mode = self.mode.currentText()
         self.btn_apply.setEnabled(False)
-        self.status.setText(f"Применяю '{mode}' к {len(names)} службам…")
+        self.status.setText(f"Сохраняю состояние и применяю '{mode}' к {len(names)} службам…")
 
         def job():
+            # Типы запуска служб лежат в HKLM\SYSTEM\...\Services — бэкап реестра
+            # позволяет откатить изменения. Сбой бэкапа прервёт применение.
+            from app.core import backup
+            backup.create_backup("services", hives=["HKLM"])
             return {n: self.module.set_start_type(n, mode) for n in names}
 
         self._worker = OperationWorker(job)

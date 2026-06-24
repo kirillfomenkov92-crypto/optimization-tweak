@@ -28,3 +28,32 @@ class OperationWorker(QThread):
             self.finished_ok.emit(result)
         except Exception as e:  # pragma: no cover - зависит от среды
             self.failed.emit(str(e))
+
+
+class StepWorker(QThread):
+    """Выполняет последовательность шагов [(подпись, функция)], сообщая прогресс."""
+
+    step = pyqtSignal(str, int)        # подпись текущего шага, процент (0..100)
+    step_done = pyqtSignal(str)        # подпись завершённого шага
+    finished_ok = pyqtSignal(dict)     # сводка результатов
+    failed = pyqtSignal(str)
+
+    def __init__(self, steps) -> None:
+        super().__init__()
+        self._steps = list(steps)
+
+    def run(self) -> None:
+        results = {}
+        n = max(1, len(self._steps))
+        try:
+            for i, (label, fn) in enumerate(self._steps):
+                self.step.emit(label, int(i / n * 100))
+                try:
+                    results[label] = fn()
+                except Exception as e:  # pragma: no cover
+                    results[label] = e
+                self.step_done.emit(label)
+            self.step.emit("Готово!", 100)
+            self.finished_ok.emit(results)
+        except Exception as e:  # pragma: no cover
+            self.failed.emit(str(e))

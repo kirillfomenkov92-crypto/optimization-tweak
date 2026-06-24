@@ -1,0 +1,61 @@
+{
+  "id": "gaming",
+  "name": "Геймер",
+  "description": "Минимум задержек, приоритет GPU, отключение фоновой записи. Steam/Discord/анти-читы работают. Не трогает Defender/Store/Обновления.",
+  "reboot_required": true,
+  "categories": [
+    {
+      "id": "telemetry",
+      "name": "Телеметрия",
+      "risk": "safe",
+      "services_disable": ["DiagTrack", "dmwappushservice", "WerSvc", "DPS", "WdiServiceHost", "WdiSystemHost"],
+      "registry": [
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "AllowTelemetry", "REG_DWORD", "0"]
+      ]
+    },
+    {
+      "id": "gaming_perf",
+      "name": "Игровая производительность",
+      "risk": "caution",
+      "registry": [
+        ["HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", "SystemResponsiveness", "REG_DWORD", "0"],
+        ["HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", "NetworkThrottlingIndex", "REG_DWORD", "4294967295"],
+        ["HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "GPU Priority", "REG_DWORD", "8"],
+        ["HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "Priority", "REG_DWORD", "6"],
+        ["HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "Scheduling Category", "REG_SZ", "High"],
+        ["HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "SFIO Priority", "REG_SZ", "High"],
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl", "Win32PrioritySeparation", "REG_DWORD", "38"],
+        ["HKCU\\System\\GameConfigStore", "GameDVR_Enabled", "REG_DWORD", "0"],
+        ["HKCU\\System\\GameConfigStore", "GameDVR_FSEBehaviorMode", "REG_DWORD", "2"],
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR", "AllowGameDVR", "REG_DWORD", "0"]
+      ]
+    },
+    {
+      "id": "gaming_services",
+      "name": "Службы",
+      "risk": "safe",
+      "services": [
+        {"name": "SysMain", "display": "Superfetch", "action": "disable", "condition": "ssd_only"},
+        {"name": "WSearch", "display": "Поиск", "action": "manual"}
+      ]
+    },
+    {
+      "id": "bootloader",
+      "name": "Загрузчик (низкая задержка)",
+      "risk": "caution",
+      "bcdedit_commands": [
+        {"cmd": "bcdedit /set disabledynamictick yes", "description": "Отключить Dynamic Tick", "undo": "bcdedit /set disabledynamictick no"},
+        {"cmd": "bcdedit /set tscsyncpolicy enhanced", "description": "Улучшенная синхронизация TSC между ядрами", "undo": "bcdedit /set tscsyncpolicy default"}
+      ]
+    },
+    {
+      "id": "power",
+      "name": "Питание (максимум)",
+      "risk": "caution",
+      "powershell": [
+        "powercfg /duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 99999999-9999-9999-9999-999999999999",
+        "powercfg /setactive 99999999-9999-9999-9999-999999999999"
+      ]
+    }
+  ]
+}

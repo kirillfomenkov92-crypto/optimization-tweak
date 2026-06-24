@@ -1,0 +1,109 @@
+{
+  "id": "ultra",
+  "name": "Ультра (агрессивно)",
+  "description": "ВНИМАНИЕ: агрессивное удаление. Часть функций Windows отключится. Удалённые приложения не восстановятся. Defender/Store/Обновления всё равно сохраняются. Только если понимаете, что делаете.",
+  "reboot_required": true,
+  "warning": true,
+  "categories": [
+    {
+      "id": "telemetry",
+      "name": "Телеметрия (полностью)",
+      "risk": "advanced",
+      "services_disable": ["DiagTrack", "dmwappushservice", "WerSvc", "wercplsupport", "PcaSvc", "DPS", "WdiServiceHost", "WdiSystemHost", "TrkWks", "WMPNetworkSvc", "wisvc", "RetailDemo", "MapsBroker", "lfsvc"],
+      "registry": [
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "AllowTelemetry", "REG_DWORD", "0"],
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AppCompat", "DisableInventory", "REG_DWORD", "1"],
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\WMI\\Autologger\\AutoLogger-Diagtrack-Listener", "Start", "REG_DWORD", "0"]
+      ]
+    },
+    {
+      "id": "features",
+      "name": "Компоненты Windows (DISM)",
+      "risk": "advanced",
+      "dism_remove": ["WindowsMediaPlayer", "WorkFolders-Client", "Printing-XPSServices-Features", "FaxServicesClientPackage", "MicrosoftWindowsPowerShellV2", "SMB1Protocol", "SMB1Protocol-Client", "TelnetClient", "TFTP"],
+      "note": "SMB1 — устаревший протокол с уязвимостями. PowerShell V2 устарел."
+    },
+    {
+      "id": "appx",
+      "name": "Bloatware (расширенно)",
+      "risk": "advanced",
+      "appx_keep": ["Microsoft.WindowsStore", "Microsoft.Windows.Photos", "Microsoft.WindowsCalculator", "Microsoft.WindowsNotepad", "Microsoft.Paint", "Microsoft.ScreenSketch", "Microsoft.WindowsTerminal", "Microsoft.PowerShell", "Microsoft.WindowsDefender"],
+      "appx_remove_all_users": [
+        "Microsoft.3DBuilder", "Microsoft.BingFinance", "Microsoft.BingNews", "Microsoft.BingSports",
+        "Microsoft.BingWeather", "Microsoft.GetHelp", "Microsoft.Getstarted", "Microsoft.Messaging",
+        "Microsoft.Microsoft3DViewer", "Microsoft.MicrosoftOfficeHub", "Microsoft.MicrosoftSolitaireCollection",
+        "Microsoft.MixedReality.Portal", "Microsoft.NetworkSpeedTest", "Microsoft.News", "Microsoft.Office.Sway",
+        "Microsoft.OneConnect", "Microsoft.People", "Microsoft.Print3D", "Microsoft.SkypeApp",
+        "Microsoft.Todos", "Microsoft.Whiteboard", "Microsoft.WindowsAlarms", "Microsoft.WindowsFeedbackHub",
+        "Microsoft.WindowsMaps", "Microsoft.WindowsSoundRecorder", "Microsoft.Xbox.TCUI", "Microsoft.XboxApp",
+        "Microsoft.XboxGameOverlay", "Microsoft.XboxGamingOverlay", "Microsoft.XboxSpeechToTextOverlay",
+        "Microsoft.YourPhone", "Microsoft.ZuneMusic", "Microsoft.ZuneVideo", "MicrosoftTeams", "Clipchamp.Clipchamp",
+        "Microsoft.MicrosoftStickyNotes", "Microsoft.MicrosoftJournal", "Microsoft.Office.OneNote", "Microsoft.OneDriveSync"
+      ]
+    },
+    {
+      "id": "services_aggressive",
+      "name": "Службы (агрессивно)",
+      "risk": "advanced",
+      "services": [
+        {"name": "SysMain", "action": "disable", "condition": "ssd_only"},
+        {"name": "WSearch", "action": "disable"},
+        {"name": "Fax", "action": "disable"},
+        {"name": "XblAuthManager", "action": "disable"},
+        {"name": "XblGameSave", "action": "disable"},
+        {"name": "XboxNetApiSvc", "action": "disable"},
+        {"name": "XboxGipSvc", "action": "disable"},
+        {"name": "SCardSvr", "action": "disable"},
+        {"name": "SCPolicySvc", "action": "disable"},
+        {"name": "AssignedAccessManagerSvc", "action": "disable"},
+        {"name": "MixedRealityOpenXRSvc", "action": "disable"},
+        {"name": "Spooler", "action": "manual", "condition": "no_printer"},
+        {"name": "vmicvss", "action": "disable", "condition": "not_vm"}
+      ]
+    },
+    {
+      "id": "performance",
+      "name": "Производительность (максимум)",
+      "risk": "advanced",
+      "registry": [
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management", "LargeSystemCache", "REG_DWORD", "0"],
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management", "DisablePagingExecutive", "REG_DWORD", "1"],
+        ["HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", "SystemResponsiveness", "REG_DWORD", "0"],
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem", "NtfsDisable8dot3NameCreation", "REG_DWORD", "1"],
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem", "NtfsDisableLastAccessUpdate", "REG_DWORD", "2147483649"],
+        ["HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects", "VisualFXSetting", "REG_DWORD", "3"]
+      ]
+    },
+    {
+      "id": "bootloader",
+      "name": "Загрузчик",
+      "risk": "advanced",
+      "bcdedit_commands": [
+        {"cmd": "bcdedit /set disabledynamictick yes", "description": "Отключить Dynamic Tick", "undo": "bcdedit /set disabledynamictick no"},
+        {"cmd": "bcdedit /set useplatformclock false", "description": "Отключить Platform Clock", "undo": "bcdedit /set useplatformclock true"},
+        {"cmd": "bcdedit /set timeout 3", "description": "Таймаут загрузчика 3 сек", "undo": "bcdedit /set timeout 30"}
+      ]
+    },
+    {
+      "id": "power",
+      "name": "Питание Ultimate + без гибернации",
+      "risk": "advanced",
+      "powershell": [
+        "powercfg /duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 99999999-9999-9999-9999-999999999999",
+        "powercfg /setactive 99999999-9999-9999-9999-999999999999",
+        "powercfg /h off"
+      ]
+    },
+    {
+      "id": "privacy",
+      "name": "Приватность (полностью)",
+      "risk": "advanced",
+      "registry": [
+        ["HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo", "Enabled", "REG_DWORD", "0"],
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent", "DisableWindowsConsumerFeatures", "REG_DWORD", "1"],
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "PublishUserActivities", "REG_DWORD", "0"],
+        ["HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "SilentInstalledAppsEnabled", "REG_DWORD", "0"]
+      ]
+    }
+  ]
+}

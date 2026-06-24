@@ -1,0 +1,117 @@
+{
+  "id": "compatible_fast",
+  "name": "Совместимый быстрый",
+  "description": "Максимум скорости при полной совместимости. Не трогает Defender, Store, Обновления. Браузер/офис/принтер/игры работают.",
+  "reboot_required": true,
+  "categories": [
+    {
+      "id": "telemetry",
+      "name": "Телеметрия и слежка",
+      "risk": "safe",
+      "services_disable": ["DiagTrack", "dmwappushservice", "WerSvc", "wercplsupport", "PcaSvc", "DPS", "WdiServiceHost", "WdiSystemHost", "TrkWks", "WMPNetworkSvc", "wisvc", "RetailDemo", "MapsBroker", "lfsvc"],
+      "registry": [
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "AllowTelemetry", "REG_DWORD", "0"],
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "MaxTelemetryAllowed", "REG_DWORD", "0"],
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AppCompat", "DisableInventory", "REG_DWORD", "1"],
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AppCompat", "DisableUAR", "REG_DWORD", "1"],
+        ["HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Privacy", "TailoredExperiencesWithDiagnosticDataEnabled", "REG_DWORD", "0"]
+      ],
+      "scheduled_tasks_disable": [
+        "\\Microsoft\\Windows\\Application Experience\\Microsoft Compatibility Appraiser",
+        "\\Microsoft\\Windows\\Application Experience\\ProgramDataUpdater",
+        "\\Microsoft\\Windows\\Customer Experience Improvement Program\\Consolidator",
+        "\\Microsoft\\Windows\\Customer Experience Improvement Program\\KernelCeipTask",
+        "\\Microsoft\\Windows\\Customer Experience Improvement Program\\UsbCeip",
+        "\\Microsoft\\Windows\\Feedback\\Siuf\\DmClient",
+        "\\Microsoft\\Windows\\Feedback\\Siuf\\DmClientOnScenarioDownload",
+        "\\Microsoft\\Windows\\Windows Error Reporting\\QueueReporting"
+      ],
+      "hosts_block": [
+        "vortex.data.microsoft.com", "vortex-win.data.microsoft.com",
+        "telecommand.telemetry.microsoft.com", "oca.telemetry.microsoft.com",
+        "sqm.telemetry.microsoft.com", "watson.telemetry.microsoft.com",
+        "df.telemetry.microsoft.com", "telemetry.microsoft.com",
+        "telemetry.appex.bing.net", "telemetry.urs.microsoft.com",
+        "settings-sandbox.data.microsoft.com", "vortex-sandbox.data.microsoft.com",
+        "watson.microsoft.com", "feedback.windows.com",
+        "feedback.microsoft-hohm.com", "feedback.search.microsoft.com"
+      ]
+    },
+    {
+      "id": "appx",
+      "name": "Встроенные приложения (bloatware)",
+      "risk": "safe",
+      "appx_keep": ["Microsoft.WindowsStore", "Microsoft.Windows.Photos", "Microsoft.WindowsCalculator", "Microsoft.WindowsNotepad", "Microsoft.Paint", "Microsoft.ScreenSketch", "Microsoft.WindowsTerminal", "Microsoft.PowerShell", "Microsoft.WindowsDefender"],
+      "appx_remove_all_users": [
+        "Microsoft.3DBuilder", "Microsoft.BingFinance", "Microsoft.BingNews", "Microsoft.BingSports",
+        "Microsoft.BingWeather", "Microsoft.GetHelp", "Microsoft.Getstarted", "Microsoft.Messaging",
+        "Microsoft.Microsoft3DViewer", "Microsoft.MicrosoftOfficeHub", "Microsoft.MicrosoftSolitaireCollection",
+        "Microsoft.MixedReality.Portal", "Microsoft.NetworkSpeedTest", "Microsoft.News", "Microsoft.Office.Sway",
+        "Microsoft.OneConnect", "Microsoft.People", "Microsoft.Print3D", "Microsoft.SkypeApp",
+        "Microsoft.Todos", "Microsoft.Whiteboard", "Microsoft.WindowsAlarms", "Microsoft.WindowsFeedbackHub",
+        "Microsoft.WindowsMaps", "Microsoft.WindowsSoundRecorder", "Microsoft.Xbox.TCUI", "Microsoft.XboxApp",
+        "Microsoft.XboxGameOverlay", "Microsoft.XboxGamingOverlay", "Microsoft.XboxSpeechToTextOverlay",
+        "Microsoft.YourPhone", "Microsoft.ZuneMusic", "Microsoft.ZuneVideo", "MicrosoftTeams", "Clipchamp.Clipchamp"
+      ]
+    },
+    {
+      "id": "services_aggressive",
+      "name": "Службы Windows",
+      "risk": "safe",
+      "services": [
+        {"name": "SysMain", "display": "Superfetch", "action": "disable", "condition": "ssd_only"},
+        {"name": "WSearch", "display": "Windows Search", "action": "manual"},
+        {"name": "Fax", "display": "Факс", "action": "disable"},
+        {"name": "XblAuthManager", "action": "disable"},
+        {"name": "XblGameSave", "action": "disable"},
+        {"name": "XboxNetApiSvc", "action": "disable"},
+        {"name": "XboxGipSvc", "action": "disable"},
+        {"name": "SCardSvr", "display": "Smart Card", "action": "disable"},
+        {"name": "SCPolicySvc", "display": "Smart Card Removal", "action": "disable"},
+        {"name": "Spooler", "display": "Печать", "action": "manual", "condition": "no_printer"},
+        {"name": "WbioSrvc", "display": "Биометрия", "action": "manual", "condition": "no_biometric_hardware"},
+        {"name": "TabletInputService", "display": "Сенсорная клавиатура", "action": "manual", "condition": "no_touchscreen"},
+        {"name": "vmicvss", "action": "disable", "condition": "not_vm"},
+        {"name": "vmicheartbeat", "action": "disable", "condition": "not_vm"}
+      ]
+    },
+    {
+      "id": "performance",
+      "name": "Производительность",
+      "risk": "caution",
+      "registry": [
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Control", "WaitToKillServiceTimeout", "REG_SZ", "2000"],
+        ["HKCU\\Control Panel\\Desktop", "MenuShowDelay", "REG_SZ", "0"],
+        ["HKCU\\Control Panel\\Desktop", "AutoEndTasks", "REG_SZ", "1"],
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management", "LargeSystemCache", "REG_DWORD", "0"],
+        ["HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", "SystemResponsiveness", "REG_DWORD", "0"],
+        ["HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", "NetworkThrottlingIndex", "REG_DWORD", "4294967295"],
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", "TcpAckFrequency", "REG_DWORD", "1"],
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters", "TCPNoDelay", "REG_DWORD", "1"],
+        ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem", "NtfsDisableLastAccessUpdate", "REG_DWORD", "2147483649"],
+        ["HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "TaskbarAnimations", "REG_DWORD", "0"]
+      ]
+    },
+    {
+      "id": "bootloader",
+      "name": "Загрузчик",
+      "risk": "caution",
+      "bcdedit_commands": [
+        {"cmd": "bcdedit /set disabledynamictick yes", "description": "Отключить Dynamic Tick (меньше DPC latency)", "undo": "bcdedit /set disabledynamictick no"},
+        {"cmd": "bcdedit /set timeout 3", "description": "Сократить таймаут загрузчика до 3 сек", "undo": "bcdedit /set timeout 30"}
+      ]
+    },
+    {
+      "id": "privacy",
+      "name": "Приватность",
+      "risk": "safe",
+      "registry": [
+        ["HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo", "Enabled", "REG_DWORD", "0"],
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent", "DisableWindowsConsumerFeatures", "REG_DWORD", "1"],
+        ["HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "SilentInstalledAppsEnabled", "REG_DWORD", "0"],
+        ["HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "SystemPaneSuggestionsEnabled", "REG_DWORD", "0"],
+        ["HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "PublishUserActivities", "REG_DWORD", "0"]
+      ]
+    }
+  ]
+}

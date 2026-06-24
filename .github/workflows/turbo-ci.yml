@@ -1,0 +1,38 @@
+name: TurboDebloat CI (Windows)
+
+# Проверка инструмента TurboDebloat на настоящем Windows:
+#   - компиляция; импорт ядра; список шагов; СУХОЙ прогон (ничего не меняет).
+# Реальное применение (--apply) в CI НЕ запускается.
+
+on:
+  push:
+    branches: [ main, 'claude/**' ]
+    paths: [ 'turbo_debloat/**', '.github/workflows/turbo-ci.yml' ]
+  pull_request:
+    paths: [ 'turbo_debloat/**', '.github/workflows/turbo-ci.yml' ]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Компиляция
+        run: python -m compileall -q turbo_debloat
+
+      - name: Смоук-импорт ядра
+        run: |
+          python -c "import sys; sys.path.insert(0,'.'); from turbo_debloat.core.engine import PlaybookEngine, iter_steps, load_playbook; from turbo_debloat.core import safety, compat_check, backup, restore; print('CORE OK')"
+
+      - name: Список шагов playbook
+        run: python -m turbo_debloat.main --list
+
+      - name: Сухой прогон (без изменений)
+        run: python -m turbo_debloat.main

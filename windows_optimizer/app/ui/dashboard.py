@@ -7,8 +7,11 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from app.core import system_info
+from app.core import system_info, backup
 from app.ui.widgets.health_ring import HealthScoreRing, score_caption
+from app.ui.widgets.progress_overlay import ProgressOverlay
+from app.ui.widgets.toast import Toast
+from app.ui.widgets.worker import StepWorker
 
 
 def _health_score() -> int:
@@ -93,6 +96,9 @@ class Dashboard(QWidget):
         self.optimize_btn = QPushButton("🚀  Оптимизировать систему")
         self.optimize_btn.setObjectName("Primary")
         self.optimize_btn.setMinimumHeight(56)
+        self.optimize_btn.clicked.connect(self._start_optimize)
+        self._overlay = ProgressOverlay(self)
+        self._worker = None
         hint = QLabel("Безопасно применит рекомендованные улучшения · перед изменениями создаётся сохранение")
         hint.setObjectName("Subtitle")
         hint.setWordWrap(True)
@@ -116,3 +122,64 @@ class Dashboard(QWidget):
         self.card_cpu.set(f"{round(m['cpu_percent'])}%", m["cpu_percent"])
         self.card_ram.set(f"{m['ram_used_gb']} из {m['ram_total_gb']} ГБ", m["ram_percent"])
         self.card_disk.set(f"занято {round(m['disk_percent'])}%", m["disk_percent"])
+
+    # ----- быстрая оптимизация -----
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._overlay.isVisible():
+            self._overlay.resize(self.size())
+
+    def _start_optimize(self) -> None:
+        self.optimize_btn.setEnabled(False)
+        self._overlay.begin()
+        steps = [
+            ("Сохраняем состояние системы…", self._step_backup),
+            ("Включаем безопасные улучшения…", self._step_apply_safe),
+            ("Очищаем временные файлы…", self._step_clean_temp),
+        ]
+        self._worker = StepWorker(steps)
+        self._worker.step.connect(self._overlay.set_progress)
+        self._worker.step_done.connect(self._overlay.mark_done)
+        self._worker.finished_ok.connect(self._optimize_done)
+        self._worker.failed.connect(self._optimize_failed)
+        self._worker.start()
+
+    def _step_backup(self):
+        return backup.create_backup("quick", hives=["HKLM", "HKCU"])
+
+    def _step_apply_safe(self):
+        from app.modules.registry import RegistryModule
+
+        mod = RegistryModule()
+        ids = [r["id"] for r in mod.scan()
+               if r.get("risk_level") == "safe" and r.get("simple_mode_visible", True)
+               and r.get("status") != "applied"]
+        return mod.apply_many(ids) if ids else {}
+
+    def _step_clean_temp(self):
+        from app.modules.disk import DiskModule
+
+        return DiskModule().clean(["Временные файлы пользователя", "Temp в LocalAppData"])
+
+    def _optimize_done(self, results: dict) -> None:
+        freed = 0
+        applied = 0
+        for v in results.values():
+            if isinstance(v, dict):
+                for k, val in v.items():
+                    if isinstance(val, bool) and val:
+                        applied += 1
+                    elif isinstance(val, int):
+                        freed += val
+        mb = round(freed / (1024 * 1024), 1)
+        self._overlay.finish(f"Применено улучшений: {applied}. Очищено: {mb} МБ.")
+        self.optimize_btn.setEnabled(True)
+        Toast.show_message(self, f"Готово! Улучшений: {applied}, очищено {mb} МБ.", "success")
+        # обновляем кольцо состояния
+        self.ring.set_value(_health_score())
+        self.caption.setText(score_caption(_health_score()))
+
+    def _optimize_failed(self, msg: str) -> None:
+        self._overlay.finish(f"Не удалось завершить: {msg}")
+        self.optimize_btn.setEnabled(True)
+        Toast.show_message(self, f"Ошибка: {msg}", "error")

@@ -64,6 +64,14 @@ def main() -> int:
     window.show()
     if splash is not None:
         splash.finish(window)
+
+    # Мастер первого запуска (один раз).
+    try:
+        from app.ui.onboarding import maybe_show
+        maybe_show(window)
+    except Exception as e:  # pragma: no cover
+        log.warning("Онбординг не показан: %s", e)
+
     return app.exec()
 
 

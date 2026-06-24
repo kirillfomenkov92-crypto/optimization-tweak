@@ -42,7 +42,11 @@ def main(argv=None) -> int:
     ap.add_argument("--apply", action="store_true", help="применить (иначе сухой прогон)")
     ap.add_argument("--yes", action="store_true", help="не спрашивать подтверждение (для --apply)")
     ap.add_argument("--restore", metavar="PATH", help="откатить из бэкапа")
+    ap.add_argument("--gui", action="store_true", help="запустить графический интерфейс")
     args = ap.parse_args(argv)
+
+    if args.gui:
+        return _run_gui()
 
     if args.restore:
         report = restore_mod.restore(Path(args.restore), dry_run=not args.apply)
@@ -79,6 +83,21 @@ def main(argv=None) -> int:
     if report.get("backup"):
         print(f"Бэкап: {report['backup']}")
     return 0
+
+
+def _run_gui() -> int:
+    try:
+        from PyQt6.QtWidgets import QApplication
+    except Exception as e:
+        print(f"Требуется PyQt6: {e}")
+        return 2
+    from turbo_debloat.ui.main_window import MainWindow
+
+    app = QApplication(sys.argv)
+    app.setApplicationName("TurboDebloat")
+    win = MainWindow()
+    win.show()
+    return app.exec()
 
 
 if __name__ == "__main__":

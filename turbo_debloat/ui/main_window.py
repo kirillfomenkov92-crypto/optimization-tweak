@@ -242,7 +242,12 @@ class MainWindow(QMainWindow):
 
     def _restore(self, backup_path: str) -> None:
         rep = restore_mod.restore(Path(backup_path), dry_run=False)
-        self.statusBar().showMessage(f"Откат выполнен: действий {rep['count']}")
+        failed = rep.get("failed", 0)
+        if failed:
+            self.statusBar().showMessage(
+                f"Откат завершён с ошибками: действий {rep['count']}, неуспешных {failed} — см. лог.")
+        else:
+            self.statusBar().showMessage(f"Откат выполнен: действий {rep['count']}")
 
     # ---------- утилиты ----------
     def _sub(self, text: str) -> QLabel:

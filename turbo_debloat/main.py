@@ -50,9 +50,14 @@ def main(argv=None) -> int:
 
     if args.restore:
         report = restore_mod.restore(Path(args.restore), dry_run=not args.apply)
-        print(f"Откат ({'применение' if args.apply else 'сухой прогон'}): действий {report['count']}")
+        failed = report.get("failed", 0)
+        print(f"Откат ({'применение' if args.apply else 'сухой прогон'}): "
+              f"действий {report['count']}, неуспешных {failed}")
         for a in report["actions"]:
             print("  •", a)
+        if failed:
+            print(f"ВНИМАНИЕ: {failed} шаг(ов) отката завершились с ошибкой — см. лог.")
+            return 1
         return 0
 
     playbook = load_playbook(_playbook_path(args.playbook))

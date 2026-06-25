@@ -14,6 +14,13 @@ import sys
 import tempfile
 from pathlib import Path
 
+# Консоль Windows по умолчанию cp1252 — кириллица в print ломает её.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+except Exception:
+    pass
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 

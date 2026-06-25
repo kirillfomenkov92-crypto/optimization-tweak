@@ -11,6 +11,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# Консоль Windows по умолчанию cp1252 — кириллица в print ломает её. Делаем
+# вывод UTF-8 независимо от окружения, чтобы тест не падал на этапе печати.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+except Exception:
+    pass
+
 ROOT = Path(__file__).resolve().parents[1]  # windows_optimizer/
 sys.path.insert(0, str(ROOT))
 

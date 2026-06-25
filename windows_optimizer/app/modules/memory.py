@@ -4,11 +4,12 @@ from __future__ import annotations
 import sys
 from typing import Dict, List
 
-from app.core.logger import log_change
+from app.core.logger import log_change, get_logger
 from app.core.optimizer import OptimizerModule
 from app.utils import registry_helper as reg
 
 IS_WINDOWS = sys.platform == "win32"
+_log = get_logger()
 
 try:
     import psutil  # type: ignore
@@ -50,15 +51,15 @@ class MemoryModule(OptimizerModule):
             try:
                 vm = psutil.virtual_memory()
                 rows.append({"item": "Используется", "value": f"{round(vm.used/(1024**3),1)} ГБ ({vm.percent}%)"})
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("psutil: не удалось получить использование памяти: %s", e)
         # LargeSystemCache: 0 = приоритет приложениям (рекомендуется для десктопа)
         if IS_WINDOWS:
             try:
                 cur, _ = reg.read_value("HKLM", _MEMMGMT, "LargeSystemCache")
                 rows.append({"item": "LargeSystemCache", "value": str(cur)})
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("Не удалось прочитать LargeSystemCache: %s", e)
         return rows
 
     def set_large_system_cache(self, value: int = 0) -> bool:

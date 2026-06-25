@@ -58,8 +58,8 @@ def _dir_size(path: Path) -> int:
                     total += (Path(root) / f).stat().st_size
                 except Exception:
                     continue
-    except Exception:
-        pass
+    except Exception as e:
+        _log.debug("Не удалось посчитать размер %s: %s", path, e)
     return total
 
 

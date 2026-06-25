@@ -13,6 +13,10 @@ from typing import Any, Callable
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from app.core.logger import get_logger
+
+_log = get_logger()
+
 # Набор активных воркеров (для корректного завершения при выходе).
 active_workers: "set[QThread]" = set()
 
@@ -23,8 +27,8 @@ def stop_all(timeout_ms: int = 3000) -> None:
         try:
             w.requestInterruption()
             w.wait(timeout_ms)
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("Не удалось остановить воркер %r: %s", w, e)
 
 
 class OperationWorker(QThread):

@@ -11,7 +11,10 @@ import sys
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from app.core.logger import get_logger
+
 IS_WINDOWS = sys.platform == "win32"
+_log = get_logger()
 
 try:
     import psutil  # type: ignore
@@ -49,8 +52,8 @@ def collect() -> SystemInfo:
             info.cpu_cores = psutil.cpu_count(logical=False) or 0
             info.cpu_threads = psutil.cpu_count(logical=True) or 0
             info.ram_total_gb = round(psutil.virtual_memory().total / (1024 ** 3), 1)
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("psutil: не удалось собрать данные CPU/RAM: %s", e)
 
     info.cpu_name = platform.processor() or "неизвестно"
 
@@ -67,28 +70,28 @@ def _enrich_windows(info: SystemInfo) -> None:
         try:
             cpu = c.Win32_Processor()[0]
             info.cpu_name = (cpu.Name or info.cpu_name).strip()
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("WMI Win32_Processor недоступен: %s", e)
         try:
             info.gpus = [g.Name for g in c.Win32_VideoController() if g.Name]
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("WMI Win32_VideoController недоступен: %s", e)
         try:
             for d in c.Win32_DiskDrive():
                 size = round(int(d.Size) / (1024 ** 3), 0) if d.Size else 0
                 mt = "SSD" if (d.MediaType and "SSD" in str(d.MediaType)) else "Unknown"
                 info.disks.append(DiskInfo(device=str(d.DeviceID), media_type=mt, size_gb=size))
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("WMI Win32_DiskDrive недоступен: %s", e)
         try:
             os_ = c.Win32_OperatingSystem()[0]
             info.os_name = (os_.Caption or info.os_name).strip()
             info.os_build = str(os_.BuildNumber or info.os_build)
-        except Exception:
-            pass
-    except Exception:
+        except Exception as e:
+            _log.debug("WMI Win32_OperatingSystem недоступен: %s", e)
+    except Exception as e:
         # WMI недоступен — остаёмся на данных psutil/platform.
-        pass
+        _log.debug("WMI недоступен, используем psutil/platform: %s", e)
 
 
 def live_metrics() -> dict:
@@ -105,6 +108,6 @@ def live_metrics() -> dict:
         metrics["ram_total_gb"] = round(vm.total / (1024 ** 3), 1)
         root = "C:\\" if IS_WINDOWS else "/"
         metrics["disk_percent"] = psutil.disk_usage(root).percent
-    except Exception:
-        pass
+    except Exception as e:
+        _log.debug("psutil: не удалось снять метрики реального времени: %s", e)
     return metrics

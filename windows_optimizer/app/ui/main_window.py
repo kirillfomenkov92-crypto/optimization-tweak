@@ -35,6 +35,9 @@ from app.modules.cpu import CpuModule
 from app.modules.security import SecurityModule
 
 from app.utils.resources import resource_path
+from app.core.logger import get_logger
+
+_log = get_logger()
 
 _STYLES_DIR = resource_path("app", "ui", "styles")
 _STYLE = _STYLES_DIR / "dark_theme.qss"
@@ -152,8 +155,8 @@ class MainWindow(QMainWindow):
             self._tray.setContextMenu(menu)
             self._tray.activated.connect(lambda _r: self.showNormal())
             self._tray.show()
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("Иконка в трее недоступна: %s", e)
 
     def _tray_icon_for(self, score: int):
         from PyQt6.QtCore import Qt
@@ -176,8 +179,8 @@ class MainWindow(QMainWindow):
         try:
             from app.ui.widgets.worker import stop_all
             stop_all()
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("Остановка воркеров при закрытии не удалась: %s", e)
         super().closeEvent(event)
 
     def _fade_in(self, index: int) -> None:
@@ -199,8 +202,8 @@ class MainWindow(QMainWindow):
             anim.finished.connect(lambda: widget.setGraphicsEffect(None))
             anim.start()
             self._fade_anim = anim  # удержать ссылку
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("Анимация перехода не запущена: %s", e)
 
     def _pages(self) -> List[Tuple[str, QWidget]]:
         reg = RegistryModule()
@@ -279,14 +282,14 @@ class MainWindow(QMainWindow):
             palette = Colors if self._theme == "dark" else ColorsLight
             self.setStyleSheet(build_qss(palette))
             return
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("Программная тема не применена, пробую .qss-файл: %s", e)
         qss = _STYLES_DIR / f"{self._theme}_theme.qss"
         try:
             if qss.exists():
                 self.setStyleSheet(qss.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("Не удалось применить тему из %s: %s", qss, e)
 
     def _build_header(self) -> QWidget:
         from app.ui.modes import AppMode, mode_manager
@@ -327,8 +330,8 @@ class MainWindow(QMainWindow):
             if hasattr(w, "refresh"):
                 try:
                     w.refresh()
-                except Exception:
-                    pass
+                except Exception as e:
+                    _log.debug("Обновление панели %r не удалось: %s", w, e)
         simple = mode_manager().is_simple()
         self.statusBar().showMessage(
             "Простой режим: показаны только понятные безопасные улучшения."

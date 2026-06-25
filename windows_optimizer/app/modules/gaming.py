@@ -14,8 +14,10 @@ IS_WINDOWS = sys.platform == "win32"
 _GAMES_TASK = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games"
 
 # (hive, path, name, type, optimized, default, описание)
+# ВНИМАНИЕ: GameDVR_Enabled (HKCU\System\GameConfigStore) сюда НЕ добавлять —
+# этим твиком владеет БД (tweaks_database.json, id=disable_gamebar_dvr), чтобы
+# не было двух источников правды и расхождения статуса/применения.
 GAME_TWEAKS = [
-    ("HKCU", r"System\GameConfigStore", "GameDVR_Enabled", "REG_DWORD", 0, 1, "Отключить Game DVR"),
     ("HKCU", r"SOFTWARE\Microsoft\GameBar", "AutoGameModeEnabled", "REG_DWORD", 1, 1, "Game Mode включён"),
     ("HKCU", r"System\GameConfigStore", "GameDVR_FSEBehaviorMode", "REG_DWORD", 2, 0, "Отключить fullscreen optimization"),
     ("HKLM", _GAMES_TASK, "GPU Priority", "REG_DWORD", 8, 8, "GPU-приоритет для игр"),

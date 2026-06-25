@@ -6,10 +6,11 @@ import subprocess
 import sys
 from typing import Dict, List, Optional
 
-from app.core.logger import log_change
+from app.core.logger import log_change, get_logger
 from app.core.optimizer import OptimizerModule
 
 IS_WINDOWS = sys.platform == "win32"
+_log = get_logger()
 
 HIGH_PERF_GUID = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
 _GUID_RE = re.compile(r"([0-9a-fA-F-]{36})")
@@ -41,8 +42,8 @@ class PowerModule(OptimizerModule):
                 if nm:
                     name = nm.group(1)
                 plans.append({"guid": guid, "name": name, "active": guid == active})
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("powercfg /list не удался: %s", e)
         return plans
 
     def active_plan(self) -> Optional[str]:

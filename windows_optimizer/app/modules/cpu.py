@@ -5,11 +5,12 @@ import subprocess
 import sys
 from typing import Dict, List
 
-from app.core.logger import log_change
+from app.core.logger import log_change, get_logger
 from app.core.optimizer import OptimizerModule
 from app.utils import registry_helper as reg
 
 IS_WINDOWS = sys.platform == "win32"
+_log = get_logger()
 
 try:
     import psutil  # type: ignore
@@ -39,8 +40,8 @@ class CpuModule(OptimizerModule):
                 d["threads"] = psutil.cpu_count(logical=True) or 0
                 f = psutil.cpu_freq()
                 d["freq_mhz"] = int(f.max or f.current) if f else 0
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("psutil: не удалось получить данные CPU: %s", e)
         return d
 
     def set_priority_separation(self, value: int) -> bool:
@@ -82,6 +83,6 @@ class CpuModule(OptimizerModule):
             try:
                 cur, _ = reg.read_value("HKLM", _PRIO_CONTROL, "Win32PrioritySeparation")
                 rows.append({"item": "Win32PrioritySeparation", "value": hex(cur) if cur is not None else "—"})
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("Не удалось прочитать Win32PrioritySeparation: %s", e)
         return rows

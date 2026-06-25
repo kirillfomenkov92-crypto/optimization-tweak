@@ -12,6 +12,10 @@ from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QVBoxLayout, QWidget,
 )
 
+from app.core.logger import get_logger
+
+_log = get_logger()
+
 
 def _findings_text() -> str:
     """Быстрые находки без тяжёлых операций (не сканируем размеры диска)."""
@@ -20,15 +24,15 @@ def _findings_text() -> str:
     try:
         from app.modules.startup import StartupModule
         startup_n = len(StartupModule().scan())
-    except Exception:
-        pass
+    except Exception as e:
+        _log.debug("Онбординг: скан автозапуска не удался: %s", e)
     try:
         from app.modules.registry import RegistryModule
         rows = RegistryModule().scan()
         safe_n = sum(1 for r in rows
                      if r.get("risk_level") == "safe" and r.get("status") != "applied")
-    except Exception:
-        pass
+    except Exception as e:
+        _log.debug("Онбординг: скан твиков реестра не удался: %s", e)
     lines = []
     if startup_n:
         lines.append(f"🐢  Вместе с Windows запускается программ: {startup_n}.\n"
@@ -132,8 +136,8 @@ class Onboarding(QDialog):
         try:
             from PyQt6.QtCore import QSettings
             QSettings("WindowsOptimizer", "App").setValue("profile", key)
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("Не удалось сохранить профиль онбординга: %s", e)
         self.accept()
 
 
@@ -147,5 +151,5 @@ def maybe_show(parent: QWidget) -> None:
             dlg = Onboarding(parent)
             dlg.exec()
             s.setValue("first_run", "false")
-    except Exception:
-        pass
+    except Exception as e:
+        _log.debug("Мастер первого запуска не показан: %s", e)

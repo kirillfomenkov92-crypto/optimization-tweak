@@ -9,6 +9,10 @@ from __future__ import annotations
 from enum import Enum
 from typing import Callable, List
 
+from app.core.logger import get_logger
+
+_log = get_logger()
+
 
 class AppMode(Enum):
     SIMPLE = "simple"
@@ -31,7 +35,8 @@ class ModeManager:
             self._settings = QSettings("WindowsOptimizer", "App")
             value = self._settings.value("ui_mode", AppMode.SIMPLE.value)
             self._mode = AppMode(value if value in (m.value for m in AppMode) else "simple")
-        except Exception:
+        except Exception as e:
+            _log.debug("Не удалось прочитать режим UI, остаюсь на Простом: %s", e)
             self._mode = AppMode.SIMPLE
 
     @property
@@ -45,13 +50,13 @@ class ModeManager:
         try:
             if self._settings is not None:
                 self._settings.setValue("ui_mode", mode.value)
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("Не удалось сохранить режим UI: %s", e)
         for cb in list(self._callbacks):
             try:
                 cb(mode)
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("Колбэк смены режима упал: %s", e)
 
     def on_change(self, callback: Callable[[AppMode], None]) -> None:
         self._callbacks.append(callback)

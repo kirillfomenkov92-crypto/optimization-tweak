@@ -27,6 +27,17 @@ PRIORITY_PRESETS = {
     "Равный (сервер)": 0x18,
 }
 
+# Обратная карта для человекочитаемого отображения текущего значения.
+_PRIORITY_LABELS = {v: k for k, v in PRIORITY_PRESETS.items()}
+
+
+def _priority_label(value) -> str:
+    """Подпись текущего режима приоритета вместо сырого hex."""
+    if value is None:
+        return "не задан"
+    label = _PRIORITY_LABELS.get(value)
+    return label if label else f"другое значение ({hex(value)})"
+
 
 class CpuModule(OptimizerModule):
     key = "cpu"
@@ -82,7 +93,7 @@ class CpuModule(OptimizerModule):
         if IS_WINDOWS:
             try:
                 cur, _ = reg.read_value("HKLM", _PRIO_CONTROL, "Win32PrioritySeparation")
-                rows.append({"item": "Win32PrioritySeparation", "value": hex(cur) if cur is not None else "—"})
+                rows.append({"item": "Приоритет процессора", "value": _priority_label(cur)})
             except Exception as e:
                 _log.debug("Не удалось прочитать Win32PrioritySeparation: %s", e)
         return rows

@@ -30,6 +30,8 @@ def build() -> int:
         f"--add-data={ROOT / 'data'}{sep}data",
         f"--add-data={ROOT / 'resources'}{sep}resources",
         f"--add-data={ROOT / 'app' / 'ui' / 'styles'}{sep}app/ui/styles",
+        # playbook'и встроенного деблоата (JSON-данные, нужны в .exe).
+        f"--add-data={ROOT / 'app' / 'debloat' / 'playbooks'}{sep}app/debloat/playbooks",
         "--hidden-import", "win32com",
         "--hidden-import", "win32com.client",
         "--hidden-import", "wmi",

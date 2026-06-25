@@ -1,40 +1,64 @@
-"""GUI TurboDebloat: выбор профиля → список шагов → выполнение → отчёт."""
+"""Раздел «Деблоат» внутри Windows Optimizer Pro.
+
+Встраивает движок TurboDebloat (app/debloat) как панель: выбор профиля →
+список шагов → выполнение → отчёт. Безопасность та же: сухой прогон по
+умолчанию, бэкап перед изменениями, защита Defender/Store/Update, откат.
+Права администратора запрашивает само приложение при старте — отдельная
+элевация здесь не нужна.
+"""
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QDialogButtonBox, QFrame, QHBoxLayout, QLabel,
-    QMainWindow, QProgressBar, QPushButton, QStackedWidget, QTextEdit,
-    QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
+    QProgressBar, QPushButton, QStackedWidget, QTextEdit, QTreeWidget,
+    QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
-from turbo_debloat.core import restore as restore_mod
-from turbo_debloat.core.engine import Step, iter_steps, load_playbook
-from turbo_debloat.ui.worker import RunWorker
+from app.core.logger import get_logger
+from app.debloat import restore as restore_mod
+from app.debloat.engine import PlaybookEngine, Step, iter_steps, load_playbook
+from app.ui.widgets.worker import active_workers
+from app.utils.resources import resource_path
 
-_PLAYBOOKS = Path(__file__).resolve().parents[1] / "playbooks"
+_log = get_logger()
+_PLAYBOOKS = resource_path("app", "debloat", "playbooks")
 _RISK_ICON = {"safe": "🟢", "caution": "🟡", "advanced": "🔴"}
 
-_QSS = """
-QWidget { background:#0D1117; color:#F0F2F8; font-family:'Segoe UI'; font-size:14px; }
-QLabel#H { font-size:22px; font-weight:700; }
-QLabel#Sub { color:#8B92A5; }
-#Card { background:#161B27; border:1px solid #252D42; border-radius:14px; padding:18px; }
-#Card:hover { border:1px solid #6C63FF; }
-QPushButton { background:#1E2535; border:1px solid #252D42; border-radius:10px; padding:8px 16px; color:#F0F2F8; }
-QPushButton:hover { background:#252D42; }
-QPushButton#Primary { background:#6C63FF; border:none; font-weight:600; }
-QPushButton#Danger { border:1px solid #FF5C8D; color:#FF5C8D; background:transparent; }
-QProgressBar { background:#1E2535; border-radius:999px; height:8px; text-align:center; }
-QProgressBar::chunk { background:#6C63FF; border-radius:999px; }
-QTreeWidget, QTextEdit { background:#161B27; border:1px solid #252D42; border-radius:10px; }
-"""
+
+class _RunWorker(QThread):
+    """Фоновое выполнение playbook (чтобы окно не зависало)."""
+    progress = pyqtSignal(int, str)
+    done = pyqtSignal(dict)
+    failed = pyqtSignal(str)
+
+    def __init__(self, playbook: dict, selected_ids: Optional[set], dry_run: bool) -> None:
+        super().__init__()
+        self._playbook = playbook
+        self._selected = selected_ids
+        self._dry_run = dry_run
+
+    def run(self) -> None:
+        # Регистрируемся, чтобы MainWindow.closeEvent → stop_all() дождался
+        # завершения потока и не уронил «QThread: Destroyed while running».
+        active_workers.add(self)
+        try:
+            engine = PlaybookEngine(dry_run=self._dry_run)
+            report = engine.run(
+                self._playbook, selected_ids=self._selected,
+                progress_cb=lambda p, label: self.progress.emit(p, label),
+            )
+            self.done.emit(report)
+        except Exception as e:  # pragma: no cover
+            self.failed.emit(str(e))
+        finally:
+            active_workers.discard(self)
 
 
-class WarningDialog(QDialog):
+class _WarningDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Прочитайте перед запуском")
@@ -55,39 +79,40 @@ class WarningDialog(QDialog):
         v.addWidget(bb)
 
 
-class MainWindow(QMainWindow):
+class DebloatPanel(QWidget):
+    """Панель деблоата: 4 экрана во внутреннем QStackedWidget."""
+
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("TurboDebloat")
-        self.setMinimumSize(900, 640)
-        self.setStyleSheet(_QSS)
         self.playbook: Optional[dict] = None
         self.steps: List[Step] = []
-        self._worker = None
+        self._worker: Optional[_RunWorker] = None
         self._last_report: Optional[Dict] = None
 
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
         self.stack = QStackedWidget()
-        self.setCentralWidget(self.stack)
-        self.stack.addWidget(self._screen_profiles())   # 0
+        root.addWidget(self.stack)
+        self.stack.addWidget(self._screen_profiles())          # 0
         self.page_steps = QWidget(); self.stack.addWidget(self.page_steps)   # 1
         self.page_run = self._screen_run(); self.stack.addWidget(self.page_run)  # 2
-        self.page_report = QWidget(); self.stack.addWidget(self.page_report)  # 3
+        self.page_report = QWidget(); self.stack.addWidget(self.page_report)     # 3
         self.stack.setCurrentIndex(0)
 
     # ---------- экран 1: профили ----------
     def _screen_profiles(self) -> QWidget:
         w = QWidget()
-        root = QVBoxLayout(w)
-        root.setContentsMargins(32, 32, 32, 32)
-        title = QLabel("Выберите профиль оптимизации")
-        title.setObjectName("H")
-        root.addWidget(title)
-        root.addWidget(self._sub("Defender, Microsoft Store и Обновления сохраняются в любом профиле."))
+        rt = QVBoxLayout(w)
+        rt.setContentsMargins(24, 24, 24, 24)
+        title = QLabel("Деблоат — выберите профиль")
+        title.setObjectName("Title")
+        rt.addWidget(title)
+        rt.addWidget(self._sub("Defender, Microsoft Store и Обновления сохраняются в любом профиле."))
 
         cards = QHBoxLayout()
         cards.addWidget(self._profile_card("🚀 Турбо", "Максимум скорости при полной совместимости.\n✓ Браузер ✓ Офис ✓ Принтер", "compatible_fast"))
         cards.addWidget(self._profile_card("🎮 Геймер", "Минимум задержек, приоритет GPU, без фоновой записи.\n✓ Steam ✓ Discord ✓ Анти-читы", "gaming"))
-        root.addLayout(cards)
+        rt.addLayout(cards)
 
         ultra = QFrame(); ultra.setObjectName("Card")
         uv = QVBoxLayout(ultra)
@@ -95,14 +120,16 @@ class MainWindow(QMainWindow):
         uv.addWidget(self._sub("Агрессивное удаление. Часть функций Windows отключится. Только если понимаете, что делаете."))
         ub = QPushButton("Выбрать Ультра"); ub.clicked.connect(lambda: self._choose("ultra"))
         uv.addWidget(ub)
-        root.addWidget(ultra)
-        root.addStretch(1)
+        rt.addWidget(ultra)
+        self.profiles_status = self._sub("")
+        rt.addWidget(self.profiles_status)
+        rt.addStretch(1)
         return w
 
     def _profile_card(self, title: str, desc: str, pid: str) -> QFrame:
         card = QFrame(); card.setObjectName("Card")
         v = QVBoxLayout(card)
-        t = QLabel(title); t.setObjectName("H")
+        t = QLabel(title); t.setObjectName("Subtitle")
         v.addWidget(t)
         v.addWidget(self._sub(desc))
         b = QPushButton("Выбрать"); b.setObjectName("Primary")
@@ -115,25 +142,25 @@ class MainWindow(QMainWindow):
             self.playbook = load_playbook(_PLAYBOOKS / f"{pid}.json")
             self.steps = iter_steps(self.playbook)
         except Exception as e:
-            self._sub(f"Ошибка загрузки профиля: {e}")
+            _log.error("Деблоат: не удалось загрузить профиль %s: %s", pid, e)
+            self.profiles_status.setText(f"Ошибка загрузки профиля: {e}")
             return
         self._build_steps_screen()
         self.stack.setCurrentIndex(1)
 
     # ---------- экран 2: список шагов ----------
     def _build_steps_screen(self) -> None:
-        # очистка
         old = self.page_steps.layout()
         if old:
             QWidget().setLayout(old)
-        root = QVBoxLayout(self.page_steps)
-        root.setContentsMargins(24, 24, 24, 24)
+        rt = QVBoxLayout(self.page_steps)
+        rt.setContentsMargins(24, 24, 24, 24)
         head = QHBoxLayout()
         back = QPushButton("← Назад"); back.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         head.addWidget(back)
         head.addStretch(1)
         head.addWidget(QLabel(f"Профиль: {self.playbook.get('name')}"))
-        root.addLayout(head)
+        rt.addLayout(head)
 
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(["Шаг", "Риск"])
@@ -147,11 +174,10 @@ class MainWindow(QMainWindow):
                 groups[s.category] = parent
             it = QTreeWidgetItem(parent, [s.label, _RISK_ICON.get(s.risk, "")])
             it.setFlags(it.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            # «advanced» по умолчанию снят
             it.setCheckState(0, Qt.CheckState.Unchecked if s.risk == "advanced" else Qt.CheckState.Checked)
             it.setData(0, Qt.ItemDataRole.UserRole, s.step_id)
         self.tree.expandAll()
-        root.addWidget(self.tree, 1)
+        rt.addWidget(self.tree, 1)
 
         bottom = QHBoxLayout()
         self.dry = QCheckBox("Сухой прогон (ничего не менять) — рекомендуется первым")
@@ -161,7 +187,7 @@ class MainWindow(QMainWindow):
         start = QPushButton("Начать →"); start.setObjectName("Primary")
         start.clicked.connect(self._start)
         bottom.addWidget(start)
-        root.addLayout(bottom)
+        rt.addLayout(bottom)
 
     def _selected_ids(self) -> set:
         ids = set()
@@ -178,7 +204,7 @@ class MainWindow(QMainWindow):
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(24, 24, 24, 24)
-        self.run_title = QLabel("Выполнение…"); self.run_title.setObjectName("H")
+        self.run_title = QLabel("Выполнение…"); self.run_title.setObjectName("Title")
         v.addWidget(self.run_title)
         self.bar = QProgressBar(); self.bar.setRange(0, 100)
         v.addWidget(self.bar)
@@ -189,14 +215,14 @@ class MainWindow(QMainWindow):
     def _start(self) -> None:
         dry = self.dry.isChecked()
         if not dry:
-            dlg = WarningDialog(self)
+            dlg = _WarningDialog(self)
             if dlg.exec() != QDialog.DialogCode.Accepted:
                 return
         ids = self._selected_ids()
         self.run_log.clear()
         self.run_title.setText("Сухой прогон…" if dry else "Выполнение…")
         self.stack.setCurrentIndex(2)
-        self._worker = RunWorker(self.playbook, ids, dry)
+        self._worker = _RunWorker(self.playbook, ids, dry)
         self._worker.progress.connect(self._on_progress)
         self._worker.done.connect(self._on_done)
         self._worker.failed.connect(lambda m: self.run_log.append(f"Ошибка: {m}"))
@@ -215,13 +241,15 @@ class MainWindow(QMainWindow):
         v = QVBoxLayout(self.page_report)
         v.setContentsMargins(24, 24, 24, 24)
         t = QLabel("Готово! ✓" if not report["dry_run"] else "Сухой прогон завершён")
-        t.setObjectName("H")
+        t.setObjectName("Title")
         v.addWidget(t)
-        v.addWidget(QLabel(f"Выполнено: {report['done']} · пропущено: {report['skipped']} · ошибок: {report['failed']} из {report['total']}"))
+        v.addWidget(QLabel(f"Выполнено: {report['done']} · пропущено: {report['skipped']} · "
+                           f"ошибок: {report['failed']} из {report['total']}"))
         if report.get("backup"):
             v.addWidget(self._sub(f"Бэкап для отката: {report['backup']}"))
         if report["dry_run"]:
-            v.addWidget(self._sub("Это был сухой прогон — система не изменена. Снимите галочку «Сухой прогон» для реального применения."))
+            v.addWidget(self._sub("Это был сухой прогон — система не изменена. "
+                                  "Снимите галочку «Сухой прогон» для реального применения."))
 
         details = QTextEdit(); details.setReadOnly(True)
         for r in report["results"]:
@@ -229,6 +257,8 @@ class MainWindow(QMainWindow):
             details.append(f"{mark} {r['label']} — {r.get('message','')}")
         v.addWidget(details, 1)
 
+        self.report_status = self._sub("")
+        v.addWidget(self.report_status)
         row = QHBoxLayout()
         again = QPushButton("В начало"); again.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         row.addWidget(again)
@@ -244,12 +274,12 @@ class MainWindow(QMainWindow):
         rep = restore_mod.restore(Path(backup_path), dry_run=False)
         failed = rep.get("failed", 0)
         if failed:
-            self.statusBar().showMessage(
+            self.report_status.setText(
                 f"Откат завершён с ошибками: действий {rep['count']}, неуспешных {failed} — см. лог.")
         else:
-            self.statusBar().showMessage(f"Откат выполнен: действий {rep['count']}")
+            self.report_status.setText(f"Откат выполнен: действий {rep['count']}.")
 
     # ---------- утилиты ----------
     def _sub(self, text: str) -> QLabel:
-        lbl = QLabel(text); lbl.setObjectName("Sub"); lbl.setWordWrap(True)
+        lbl = QLabel(text); lbl.setObjectName("Subtitle"); lbl.setWordWrap(True)
         return lbl

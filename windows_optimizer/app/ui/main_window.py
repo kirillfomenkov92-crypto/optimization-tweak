@@ -17,6 +17,7 @@ from app.ui.backups_page import BackupsPage
 from app.ui.about_page import AboutPage
 from app.ui.settings_page import SettingsPage
 from app.ui.history_panel import HistoryPanel
+from app.ui.debloat_panel import DebloatPanel
 from app.ui.widgets.tweak_panel import TweakPanel
 from app.ui.widgets.disk_panel import DiskPanel
 from app.ui.widgets.services_panel import ServicesPanel
@@ -251,6 +252,7 @@ class MainWindow(QMainWindow):
             ("🔒 Безопасность", _ModulePlaceholder("Безопасность", security_rows)),
             ("🕵️ Приватность", ActionPanel("Приватность", privacy.scan, apply_privacy,
                                             "Применить твики приватности")),
+            ("🧹 Деблоат", DebloatPanel()),
             ("📝 Реестр", TweakPanel(reg, "Реестр — твики")),
             ("📋 История", HistoryPanel()),
             ("🗄️ Бэкапы", BackupsPage()),

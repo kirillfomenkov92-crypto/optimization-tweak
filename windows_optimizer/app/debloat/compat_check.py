@@ -5,7 +5,7 @@ import subprocess
 import sys
 from typing import Tuple
 
-from turbo_debloat.core.logger import get_logger
+from app.core.logger import get_logger
 
 IS_WINDOWS = sys.platform == "win32"
 _log = get_logger()

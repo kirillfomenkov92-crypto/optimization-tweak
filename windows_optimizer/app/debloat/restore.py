@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
-from turbo_debloat.core import backup as backup_mod
-from turbo_debloat.core.logger import get_logger
+from app.debloat import backup as backup_mod
+from app.core.logger import get_logger
 
 IS_WINDOWS = sys.platform == "win32"
 _log = get_logger()

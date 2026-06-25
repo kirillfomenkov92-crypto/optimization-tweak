@@ -45,6 +45,10 @@ jobs:
         run: |
           python -c "import sys; sys.path.insert(0,'.'); from app.core import logger, system_info, optimizer, backup; from app.utils import admin, registry_helper; from app.modules.registry import RegistryModule; from app.modules.startup import StartupModule; m=RegistryModule(); assert m.tweaks, 'tweaks db empty'; print('tweaks:', len(m.tweaks)); StartupModule().scan(); print('CORE OK')"
 
+      - name: Смоук-импорт встроенного деблоата + playbook'и
+        run: |
+          python -c "import sys; sys.path.insert(0,'.'); from app.debloat.engine import PlaybookEngine, iter_steps, load_playbook; from app.debloat import safety; from app.utils.resources import resource_path; import glob,pathlib; d=resource_path('app','debloat','playbooks'); fs=sorted(glob.glob(str(d/'*.json'))); assert len(fs)==3, fs; [iter_steps(load_playbook(pathlib.Path(f))) for f in fs]; assert safety.is_protected_service('WUAUSERV'); print('DEBLOAT OK:', len(fs), 'playbooks')"
+
       - name: Смоук-импорт UI (без QApplication)
         env:
           QT_QPA_PLATFORM: offscreen
@@ -53,6 +57,12 @@ jobs:
 
       - name: Тесты защиты служб
         run: python tests/test_services_protection.py
+
+      - name: Тесты защиты деблоата
+        run: python tests/test_debloat_safety.py
+
+      - name: Тесты отката деблоата
+        run: python tests/test_debloat_restore.py
 
       - name: Тесты применятеля твиков
         run: python tests/test_tweak_applier.py

@@ -17,10 +17,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from turbo_debloat.core import backup as backup_mod
-from turbo_debloat.core import safety
-from turbo_debloat.core.compat_check import CompatibilityChecker
-from turbo_debloat.core.logger import get_logger
+from app.debloat import backup as backup_mod
+from app.debloat import safety
+from app.debloat.compat_check import CompatibilityChecker
+from app.core.logger import get_logger
 
 IS_WINDOWS = sys.platform == "win32"
 _log = get_logger()

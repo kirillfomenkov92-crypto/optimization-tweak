@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from turbo_debloat.core.logger import get_logger
+from app.core.logger import get_logger
 
 IS_WINDOWS = sys.platform == "win32"
 _log = get_logger()

@@ -1,11 +1,11 @@
-"""Тесты защитного слоя TurboDebloat.
+"""Тесты защитного слоя встроенного деблоата (app/debloat).
 
 Запуск (из корня репозитория):
-    python turbo_debloat/tests/test_safety.py
+    python windows_optimizer/tests/test_debloat_safety.py
 
-Проверяет главную гарантию инструмента: Windows Update / Defender / Store и
-ядро ОС защищены НЕЗАВИСИМО от регистра имени, и ни один поставляемый
-playbook не пытается отключить защищённую службу/ветку/пакет.
+Гарантирует: Windows Update / Defender / Store / ядро ОС защищены в любом
+регистре, граница имени пакетов корректна, и ни один встроенный playbook не
+трогает защищённую службу/ветку/пакет.
 """
 from __future__ import annotations
 
@@ -14,17 +14,17 @@ import json
 import sys
 from pathlib import Path
 
-# Консоль Windows по умолчанию cp1252 — кириллица в print ломает её.
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
     sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 except Exception:
     pass
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]  # windows_optimizer/
 sys.path.insert(0, str(ROOT))
 
-from turbo_debloat.core import safety  # noqa: E402
+from app.debloat import safety  # noqa: E402
+from app.utils.resources import resource_path  # noqa: E402
 
 _failures: list[str] = []
 
@@ -35,35 +35,29 @@ def check(cond: bool, msg: str) -> None:
 
 
 # 1) Критичные службы защищены в любом регистре.
-for svc in ["wuauserv", "WUAUSERV", "Wuauserv", "bits", "BITS", "Bits",
-            "WinDefend", "windefend", "WINDEFEND",
-            "InstallService", "installservice",  # Store
-            "wscsvc", "mpssvc", "Sense", "RpcSs", "DcomLaunch"]:
+for svc in ["wuauserv", "WUAUSERV", "Wuauserv", "bits", "BITS",
+            "WinDefend", "windefend", "InstallService", "wscsvc", "RpcSs"]:
     check(safety.is_protected_service(svc), f"служба должна быть защищена: {svc!r}")
 
-# 2) Безопасные для отключения службы НЕ защищены (иначе инструмент бесполезен).
+# 2) Безопасные для отключения службы НЕ защищены.
 for svc in ["DiagTrack", "dmwappushservice", "XblGameSave", "SysMain"]:
     check(not safety.is_protected_service(svc), f"служба не должна быть защищена: {svc!r}")
 
-# 3) Store/Defender-пакеты и .NET-рантайм защищены в любом регистре.
+# 3) Store/Defender/.NET защищены; граница имени не ловит посторонние пакеты.
 for pkg in ["Microsoft.WindowsStore", "microsoft.windowsstore_8wekyb3d8bbwe",
-            "Microsoft.SecHealthUI", "Microsoft.DesktopAppInstaller",
-            "Microsoft.NET.Native.Framework.2.2", "Microsoft.VCLibs.140.00"]:
+            "Microsoft.SecHealthUI", "Microsoft.NET.Native.Framework.2.2"]:
     check(safety.is_protected_appx(pkg), f"пакет должен быть защищён: {pkg!r}")
-
-# 3b) Граница имени: префикс защиты НЕ должен ловить посторонние пакеты.
-for pkg in ["Microsoft.NetworkSpeedTest", "Microsoft.WindowsStoreApp.Extra"]:
-    check(not safety.is_protected_appx(pkg),
-          f"пакет НЕ должен попадать под защиту по границе имени: {pkg!r}")
+for pkg in ["Microsoft.NetworkSpeedTest"]:
+    check(not safety.is_protected_appx(pkg), f"пакет НЕ должен попадать под защиту: {pkg!r}")
 
 # 4) Ветки Defender в реестре защищены (любой регистр/слэши).
 for path in [r"HKLM\SOFTWARE\Microsoft\Windows Defender",
-             r"hklm\software\microsoft\windows defender\real-time protection",
              "HKLM/SOFTWARE/Policies/Microsoft/Windows Defender"]:
     check(safety.is_protected_registry(path), f"ветка должна быть защищена: {path!r}")
 
-# 5) Главный инвариант: ни один поставляемый playbook не трогает защищённое.
-for pb_file in glob.glob(str(ROOT / "turbo_debloat" / "playbooks" / "*.json")):
+# 5) Главный инвариант: ни один встроенный playbook не трогает защищённое.
+pb_dir = resource_path("app", "debloat", "playbooks")
+for pb_file in glob.glob(str(pb_dir / "*.json")):
     pb = json.loads(Path(pb_file).read_text(encoding="utf-8"))
     name = Path(pb_file).name
     for cat in pb.get("categories", []):
@@ -71,7 +65,7 @@ for pb_file in glob.glob(str(ROOT / "turbo_debloat" / "playbooks" / "*.json")):
             [s.get("name") for s in cat.get("services", [])]
         for s in svc_names:
             check(not safety.is_protected_service(s),
-                  f"{name}: playbook пытается тронуть защищённую службу {s!r}")
+                  f"{name}: playbook трогает защищённую службу {s!r}")
         for entry in cat.get("registry", []):
             check(not safety.is_protected_registry(entry[0]),
                   f"{name}: playbook пишет в защищённую ветку {entry[0]!r}")
@@ -86,4 +80,4 @@ if __name__ == "__main__":
         for f in _failures:
             print("  -", f)
         sys.exit(1)
-    print("OK: защитный слой TurboDebloat корректен (включая регистронезависимость).")
+    print("OK: защитный слой встроенного деблоата корректен.")

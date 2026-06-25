@@ -5,7 +5,10 @@ import subprocess
 import sys
 from typing import Tuple
 
+from turbo_debloat.core.logger import get_logger
+
 IS_WINDOWS = sys.platform == "win32"
+_log = get_logger()
 
 
 def _wmi():
@@ -42,16 +45,16 @@ class CompatibilityChecker:
                 for d in c.Win32_DiskDrive():
                     if d.MediaType and "SSD" in str(d.MediaType):
                         return True, "обнаружен SSD"
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("WMI SSD-детект не удался: %s", e)
         # фолбэк: TRIM включён => SSD
         try:
             out = subprocess.run(["fsutil", "behavior", "query", "DisableDeleteNotify"],
                                  capture_output=True, text=True).stdout
             if "= 0" in out:
                 return True, "TRIM включён (вероятно SSD)"
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("fsutil TRIM-проверка не удалась: %s", e)
         return False, "SSD не подтверждён"
 
     def _c_not_vm(self) -> Tuple[bool, str]:
@@ -63,8 +66,8 @@ class CompatibilityChecker:
                 model = (c.Win32_ComputerSystem()[0].Model or "").lower()
                 if any(v in model for v in ("virtual", "vmware", "virtualbox", "hyper-v", "kvm", "qemu")):
                     return False, "это виртуальная машина"
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("WMI VM-детект не удался: %s", e)
         return True, "не виртуальная машина"
 
     def _c_no_printer(self) -> Tuple[bool, str]:
@@ -77,8 +80,8 @@ class CompatibilityChecker:
                             if p.Name and "PDF" not in p.Name and "XPS" not in p.Name and "Fax" not in p.Name]
                 if printers:
                     return False, "найден принтер"
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("WMI детект принтера не удался: %s", e)
         return True, "принтеров не найдено"
 
     def _c_no_touchscreen(self) -> Tuple[bool, str]:

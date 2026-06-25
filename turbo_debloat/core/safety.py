@@ -45,17 +45,31 @@ PROTECTED_REGISTRY_PREFIXES = (
 
 
 def is_protected_service(name: str) -> bool:
-    return name in PROTECTED_SERVICES
+    # Имена служб Windows регистронезависимы — сравниваем без учёта регистра,
+    # чтобы защита не зависела от того, как служба записана в playbook.
+    n = (name or "").lower()
+    return any(n == s.lower() for s in PROTECTED_SERVICES)
 
 
 def is_protected_appx(name: str) -> bool:
-    return any(name.startswith(p) or name == p for p in PROTECTED_APPX)
+    # Имя пакета — это либо короткое имя ("Microsoft.WindowsStore"), либо полное
+    # ("Microsoft.WindowsStore_8wekyb3d8bbwe"), либо под-namespace
+    # (".NET" -> "Microsoft.NET.Native.Framework"). Совпадение проверяем строго
+    # по границе (== / "_" / "."), иначе "Microsoft.NET" ошибочно ловит
+    # "Microsoft.NetworkSpeedTest".
+    n = (name or "").lower()
+    for p in PROTECTED_APPX:
+        pl = p.lower()
+        if n == pl or n.startswith(pl + "_") or n.startswith(pl + "."):
+            return True
+    return False
 
 
 def is_protected_feature(name: str) -> bool:
-    return name in PROTECTED_FEATURES
+    n = (name or "").lower()
+    return any(n == f.lower() for f in PROTECTED_FEATURES)
 
 
 def is_protected_registry(path: str) -> bool:
-    p = path.replace("/", "\\")
+    p = (path or "").replace("/", "\\")
     return any(p.lower().startswith(x.lower()) for x in PROTECTED_REGISTRY_PREFIXES)

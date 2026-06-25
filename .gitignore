@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+*.spec.bak
+
+# Виртуальные окружения
+.venv/
+venv/
+env/
+
+# Логи и временные файлы
+*.log
+logs/
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+
+# Сборка артефактов (собираются в CI, не храним в репо)
+*.exe

@@ -51,6 +51,13 @@ NEVER = {
     "ClipSVC", "EventLog", "PlugPlay", "Dhcp", "Dnscache", "nsi",
 }
 
+# Имена служб Windows регистронезависимы. Заранее готовим версии в нижнем
+# регистре, чтобы классификация и (главное) защита NEVER не зависели от того,
+# в каком регистре служба пришла из перечисления/UI.
+_NEVER_LC = {s.lower() for s in NEVER}
+_SAFE_LC = {k.lower(): v for k, v in SAFE_TO_DISABLE.items()}
+_CAUTION_LC = {k.lower(): v for k, v in CAUTION.items()}
+
 _START_MAP = {"auto": "auto", "manual": "demand", "disabled": "disabled"}
 
 
@@ -59,11 +66,12 @@ class ServicesModule(OptimizerModule):
     title = "Службы"
 
     def group_of(self, name: str) -> str:
-        if name in NEVER:
+        n = (name or "").lower()
+        if n in _NEVER_LC:
             return "never"
-        if name in SAFE_TO_DISABLE:
+        if n in _SAFE_LC:
             return "safe"
-        if name in CAUTION:
+        if n in _CAUTION_LC:
             return "caution"
         return "other"
 
@@ -89,7 +97,7 @@ class ServicesModule(OptimizerModule):
                     "status": info.get("status", ""),
                     "start_type": info.get("start_type", ""),
                     "group": grp,
-                    "note": SAFE_TO_DISABLE.get(name) or CAUTION.get(name) or "",
+                    "note": _SAFE_LC.get(name.lower()) or _CAUTION_LC.get(name.lower()) or "",
                 })
         except Exception as e:  # pragma: no cover
             _log.error("Перечисление служб не удалось: %s", e)
@@ -97,7 +105,7 @@ class ServicesModule(OptimizerModule):
 
     def set_start_type(self, name: str, mode: str) -> bool:
         """Сменить тип запуска службы. mode: auto|manual|disabled."""
-        if name in NEVER:
+        if (name or "").lower() in _NEVER_LC:
             log_change("services", f"ЗАЩИТА: пропуск критической службы {name}", status="SKIPPED")
             return False
         if not IS_WINDOWS:

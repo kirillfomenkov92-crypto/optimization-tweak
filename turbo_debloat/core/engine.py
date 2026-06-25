@@ -20,8 +20,10 @@ from typing import Callable, Dict, List, Optional
 from turbo_debloat.core import backup as backup_mod
 from turbo_debloat.core import safety
 from turbo_debloat.core.compat_check import CompatibilityChecker
+from turbo_debloat.core.logger import get_logger
 
 IS_WINDOWS = sys.platform == "win32"
+_log = get_logger()
 
 _SC_ACTION = {"disable": "disabled", "manual": "demand", "auto": "auto"}
 
@@ -121,8 +123,8 @@ class PlaybookEngine:
             try:
                 (backup_path / "applied_steps.json").write_text(
                     json.dumps(applied_log, ensure_ascii=False, indent=2), encoding="utf-8")
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning("Не удалось записать applied_steps.json (откат undo-команд будет недоступен): %s", e)
 
         done = sum(1 for r in results if r.ok and not r.skipped)
         skipped = sum(1 for r in results if r.skipped)
@@ -168,10 +170,13 @@ class PlaybookEngine:
                 applied += 1
                 continue
             try:
-                self._run(["reg", "add", path, "/v", name, "/t", rtype, "/d", str(value), "/f"])
-                applied += 1
-            except Exception:
-                pass
+                cp = self._run(["reg", "add", path, "/v", name, "/t", rtype, "/d", str(value), "/f"])
+                if cp.returncode == 0:
+                    applied += 1
+                else:
+                    _log.warning("reg add %s\\%s не удался: %s", path, name, cp.stderr.strip())
+            except Exception as e:
+                _log.warning("reg add %s\\%s упал: %s", path, name, e)
         return StepResult(step.label, True, f"{'[dry-run] ' if self.dry_run else ''}параметров: {applied}")
 
     def _do_sched(self, step: Step) -> StepResult:

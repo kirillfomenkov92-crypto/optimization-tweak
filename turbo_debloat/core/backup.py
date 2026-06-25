@@ -10,7 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from turbo_debloat.core.logger import get_logger
+
 IS_WINDOWS = sys.platform == "win32"
+_log = get_logger()
 
 BACKUP_ROOT = Path(r"C:\TurboDebloat") if IS_WINDOWS else (Path(os.environ.get("TEMP", "/tmp")) / "TurboDebloat")
 
@@ -36,8 +39,15 @@ def create_backup(services: Optional[List[str]] = None) -> Path:
                                     capture_output=True, text=True)
                 if cp.returncode == 0:
                     reg_files.append(out.name)
-            except Exception:
-                pass
+                else:
+                    _log.warning("Экспорт реестра %s не удался: %s", hive, cp.stderr.strip())
+            except Exception as e:
+                _log.warning("Экспорт реестра %s упал: %s", hive, e)
+        # КРИТИЧНО: если на Windows не удалось сохранить НИ ОДНОЙ ветки реестра —
+        # откат правок реестра будет невозможен. Останавливаемся ради безопасности.
+        if not reg_files:
+            raise RuntimeError(
+                "Бэкап реестра не создан — применение остановлено ради безопасности.")
 
     # Состояние служб (тип запуска)
     services_state: Dict[str, str] = {}
@@ -55,7 +65,8 @@ def create_backup(services: Optional[List[str]] = None) -> Path:
                         if kw:
                             services_state[name] = kw
                         break
-            except Exception:
+            except Exception as e:
+                _log.debug("Не удалось снять тип запуска службы %s: %s", name, e)
                 continue
     (folder / "services_state.json").write_text(
         json.dumps(services_state, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -65,8 +76,8 @@ def create_backup(services: Optional[List[str]] = None) -> Path:
         hp = _hosts_path()
         if hp.exists():
             shutil.copy2(hp, folder / "hosts.bak")
-    except Exception:
-        pass
+    except Exception as e:
+        _log.warning("Бэкап hosts не удался: %s", e)
 
     manifest = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),

@@ -30,6 +30,10 @@ jobs:
         run: python -m compileall -q turbo_debloat
       - name: Смоук-импорт ядра
         run: python -c "import sys; sys.path.insert(0,'.'); from turbo_debloat.core.engine import PlaybookEngine, iter_steps, load_playbook; from turbo_debloat.core import safety, compat_check, backup, restore; print('CORE OK')"
+      - name: Тесты защитного слоя (safety)
+        run: python turbo_debloat/tests/test_safety.py
+      - name: Тесты подсчёта ошибок отката (restore)
+        run: python turbo_debloat/tests/test_restore.py
       - name: Все профили — список + сухой прогон
         run: |
           foreach ($p in @('compatible_fast','gaming','ultra')) {

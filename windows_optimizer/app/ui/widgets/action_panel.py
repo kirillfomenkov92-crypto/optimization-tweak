@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core import backup
+from app.ui.widgets.row_format import format_scan_row
 from app.ui.widgets.worker import OperationWorker
 
 
@@ -62,41 +63,11 @@ class ActionPanel(QWidget):
             self._loaded = True
             self.refresh()
 
-    # Человеко-понятные подписи статусов вместо applied/default/modified.
-    _STATUS_RU = {
-        "applied": "✓ применён",
-        "default": "по умолчанию",
-        "modified": "изменён вручную",
-        "unknown": "",
-        "": "",
-    }
-
-    def _format_row(self, r: Dict) -> str:
-        """Собрать читаемую строку из разных форм scan() без пустых скобок и
-        висящих тире."""
-        # Информационные строки вида {item, value} (CPU, Память).
-        if "item" in r:
-            value = str(r.get("value", "")).strip()
-            return f"{r['item']}: {value}" if value else str(r["item"])
-
-        # Строки-находки вида {name, ...}.
-        name = str(r.get("name", "")).strip()
-        bits: List[str] = []
-        if r.get("active") is True:          # активный план питания
-            bits.append("● активен")
-        status = self._STATUS_RU.get(str(r.get("status", "")), str(r.get("status", "")))
-        if status:
-            bits.append(status)
-        desc = str(r.get("description", "")).strip()
-        if desc:
-            bits.append(desc)
-        return f"{name}  —  " + " · ".join(bits) if bits else name
-
     def refresh(self) -> None:
         self.list.clear()
         rows = self._scan_fn()
         for r in rows:
-            self.list.addItem(self._format_row(r) if isinstance(r, dict) else str(r))
+            self.list.addItem(format_scan_row(r))
         self.status.setText(f"Пунктов: {len(rows)}")
 
     def _apply(self) -> None:

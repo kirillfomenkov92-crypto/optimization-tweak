@@ -57,7 +57,9 @@ class MemoryModule(OptimizerModule):
         if IS_WINDOWS:
             try:
                 cur, _ = reg.read_value("HKLM", _MEMMGMT, "LargeSystemCache")
-                rows.append({"item": "LargeSystemCache", "value": str(cur)})
+                label = {0: "приоритет приложениям (десктоп)",
+                         1: "приоритет системному кэшу (сервер)"}.get(cur, "не задан")
+                rows.append({"item": "Системный кэш", "value": label})
             except Exception as e:
                 _log.debug("Не удалось прочитать LargeSystemCache: %s", e)
         return rows

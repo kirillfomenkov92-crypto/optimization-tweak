@@ -23,6 +23,35 @@ _RUN_KEYS = [
     ("HKLM", "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"),
 ]
 
+# Известные «тяжёлые» для старта приложения (заметно тормозят загрузку).
+_HEAVY = (
+    "adobe", "creativecloud", "ccxprocess", "acrobat", "steam", "epicgames",
+    "discord", "teams", "msteams", "skype", "spotify", "dropbox", "onedrive",
+    "razer", "synapse", "logi", "icue", "armoury", "nvidia", "geforce",
+    "java", "jusched", "itunes", "icloud", "origin", "battle.net", "ubisoft",
+    "zoom", "slack", "webex", "utorrent", "qbittorrent", "wargaming",
+)
+# Известные «лёгкие» — быстрые драйверы/утилиты трея.
+_LIGHT = (
+    "realtek", "synaptics", "securityhealth", "igfx", "hkcmd", "igfxtray",
+    "rtkauduservice", "btnservice",
+)
+_IMPACT_LABEL = {"high": "Высокое", "medium": "Среднее", "low": "Низкое"}
+
+
+def estimate_impact(name: str, command: str = "") -> str:
+    """Оценка влияния элемента на время загрузки: high|medium|low.
+
+    Это приближение по известным программам (точный замер Windows сторонним
+    приложениям не отдаёт), поэтому в UI подписывается как «оценка».
+    """
+    s = f"{name} {command}".lower()
+    if any(h in s for h in _HEAVY):
+        return "high"
+    if any(l in s for l in _LIGHT):
+        return "low"
+    return "medium"
+
 
 class StartupModule(OptimizerModule):
     key = "startup"
@@ -52,6 +81,7 @@ class StartupModule(OptimizerModule):
                         found.append({
                             "name": name, "command": value, "source": f"{hive_name}\\Run",
                             "type": "registry", "enabled": True,
+                            "impact": estimate_impact(name, value),
                         })
                         i += 1
             except FileNotFoundError:
@@ -77,6 +107,7 @@ class StartupModule(OptimizerModule):
                             found.append({
                                 "name": f.name, "command": str(f),
                                 "source": "Startup folder", "type": "file", "enabled": True,
+                                "impact": estimate_impact(f.name, str(f)),
                             })
             except Exception:
                 continue

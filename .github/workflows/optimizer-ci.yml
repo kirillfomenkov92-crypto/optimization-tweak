@@ -78,6 +78,12 @@ jobs:
       - name: Тесты ядра Tweak
         run: python tests/test_tweak.py
 
+      - name: Тесты влияния автозагрузки
+        run: python tests/test_startup_impact.py
+
+      - name: Тесты очистки диска
+        run: python tests/test_disk_clean.py
+
       - name: Тесты форматирования строк
         run: python tests/test_row_format.py
 

@@ -221,7 +221,12 @@ class MainWindow(QMainWindow):
 
         # Ленивые поставщики строк для заглушек (scan() выполнится при первом показе,
         # а не на старте окна — иначе UI замирал бы на WMI/PowerShell/обходе диска).
-        startup_rows = lambda: [f"{r['name']} — {r.get('source','')}" for r in startup.scan()]
+        _impact_icon = {"high": "🔴 Высокое влияние", "medium": "🟡 Среднее влияние",
+                        "low": "🟢 Низкое влияние"}
+        startup_rows = lambda: [
+            f"{_impact_icon.get(r.get('impact','medium'),'')} · {r['name']} — {r.get('source','')}"
+            for r in startup.scan()
+        ]
         gpu_rows = lambda: [f"{r['item']}: {r['value']}" for r in gpu.scan()]
         security_rows = lambda: [f"{r['item']}: {r['value']}" for r in security.scan()]
 

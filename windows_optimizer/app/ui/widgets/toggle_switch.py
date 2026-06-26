@@ -13,7 +13,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import QColor, QPainter, QPen, QRadialGradient
 from PyQt6.QtWidgets import QWidget
 
-from app.ui.styles.design_tokens import Colors
+from app.ui.styles.design_tokens import active
 
 
 class ToggleSwitch(QWidget):
@@ -84,20 +84,21 @@ class ToggleSwitch(QWidget):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        c = active()
         # Поле трека (с отступом под свечение).
         pad = 8
         w = self.width() - pad * 2
         h = self.height() - pad * 2
 
-        on = QColor(Colors.ACCENT_PRIMARY)
-        off = QColor(Colors.BG_ELEVATED)
+        on = QColor(c.ACCENT_PRIMARY)
+        off = QColor(c.BG_ELEVATED)
         track = QColor(
             int(off.red() + (on.red() - off.red()) * self._pos),
             int(off.green() + (on.green() - off.green()) * self._pos),
             int(off.blue() + (on.blue() - off.blue()) * self._pos),
         )
         p.setBrush(track)
-        p.setPen(QColor(Colors.BORDER_DEFAULT))
+        p.setPen(QColor(c.BORDER_DEFAULT))
         p.drawRoundedRect(QRectF(pad, pad, w, h), h / 2, h / 2)
 
         # Ползунок.
@@ -110,7 +111,7 @@ class ToggleSwitch(QWidget):
             self._draw_spark(p, cx, cy, d)
 
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor("#FFFFFF") if self._pos > 0.5 else QColor(Colors.TEXT_TERTIARY))
+        p.setBrush(QColor("#FFFFFF") if self._pos > 0.5 else QColor(c.TEXT_TERTIARY))
         p.drawEllipse(QRectF(x, pad + 3, d, d))
         p.end()
 
@@ -118,7 +119,7 @@ class ToggleSwitch(QWidget):
         """Радиальное свечение + короткие лучи (электрическая вспышка)."""
         s = self._spark
         alpha = int(220 * (1.0 - s))          # затухает к концу
-        accent = QColor(Colors.ACCENT_SECONDARY)
+        accent = QColor(active().ACCENT_SECONDARY)
 
         # Мягкое расширяющееся свечение.
         radius = d * (0.7 + s * 1.1)

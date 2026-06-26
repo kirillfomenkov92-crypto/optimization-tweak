@@ -75,6 +75,9 @@ jobs:
       - name: Тесты OperationResult
         run: python tests/test_operation_result.py
 
+      - name: Тесты ядра Tweak
+        run: python tests/test_tweak.py
+
       - name: Тесты форматирования строк
         run: python tests/test_row_format.py
 

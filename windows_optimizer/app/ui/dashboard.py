@@ -100,10 +100,17 @@ class Dashboard(QWidget):
         root.addLayout(hero)
 
         # --- Главное действие ---
-        self.optimize_btn = QPushButton("🚀  Оптимизировать систему")
+        self.optimize_btn = QPushButton("⚡  Ускорить компьютер")
         self.optimize_btn.setObjectName("Primary")
-        self.optimize_btn.setMinimumHeight(56)
+        self.optimize_btn.setMinimumHeight(58)
         self.optimize_btn.clicked.connect(self._start_optimize)
+        # Мягкое акцентное свечение под кнопкой (премиум-глубина).
+        from PyQt6.QtWidgets import QGraphicsDropShadowEffect
+        from PyQt6.QtGui import QColor as _QC
+        _glow = QGraphicsDropShadowEffect(self.optimize_btn)
+        _glow.setBlurRadius(40); _glow.setXOffset(0); _glow.setYOffset(10)
+        _glow.setColor(_QC(108, 99, 255, 120))   # ACCENT_PRIMARY с прозрачностью
+        self.optimize_btn.setGraphicsEffect(_glow)
         self._overlay = ProgressOverlay(self)
         self._worker = None
         hint = QLabel("Безопасно применит рекомендованные улучшения · перед изменениями создаётся сохранение")

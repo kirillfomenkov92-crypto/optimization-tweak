@@ -11,15 +11,16 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import QWidget
 
-from app.ui.styles.design_tokens import Colors, Typography
+from app.ui.styles.design_tokens import Typography, active
 
 
 def _score_colors(value: int):
+    c = active()
     if value <= 40:
-        return Colors.DANGER, Colors.WARNING
+        return c.DANGER, c.WARNING
     if value <= 70:
-        return Colors.WARNING, Colors.ACCENT_SECONDARY
-    return Colors.ACCENT_PRIMARY, Colors.SUCCESS
+        return c.WARNING, c.ACCENT_SECONDARY
+    return c.ACCENT_PRIMARY, c.SUCCESS
 
 
 def score_caption(value: int) -> str:
@@ -80,6 +81,7 @@ class HealthScoreRing(QWidget):
         rect = QRectF((self.width() - side) / 2 + margin, (self.height() - side) / 2 + margin,
                       side - 2 * margin, side - 2 * margin)
         center = rect.center()
+        c = active()
         start, end = _score_colors(self._value)
 
         # Пульс-волна при росте балла — расходится наружу и затухает.
@@ -92,7 +94,7 @@ class HealthScoreRing(QWidget):
             p.drawArc(pr, 0, 360 * 16)
 
         # Фоновое кольцо — тонкое, приглушённое.
-        p.setPen(QPen(QColor(Colors.BG_ELEVATED), thickness,
+        p.setPen(QPen(QColor(c.BG_ELEVATED), thickness,
                       Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         p.drawArc(rect, 0, 360 * 16)
 
@@ -114,7 +116,7 @@ class HealthScoreRing(QWidget):
             p.drawArc(rect, 90 * 16, -int(360 * 16 * span))
 
         # Число — крупное, лёгкое.
-        p.setPen(QColor(Colors.TEXT_PRIMARY))
+        p.setPen(QColor(c.TEXT_PRIMARY))
         fnum = QFont(Typography.FONT_TEXT.split(",")[0].strip('"'))
         fnum.setPixelSize(int(rect.height() * 0.34))
         fnum.setWeight(QFont.Weight.DemiBold)
@@ -123,7 +125,7 @@ class HealthScoreRing(QWidget):
         p.drawText(num_rect, Qt.AlignmentFlag.AlignCenter, str(self._value))
 
         # Подпись «/100» — мелко, под числом.
-        p.setPen(QColor(Colors.TEXT_SECONDARY))
+        p.setPen(QColor(c.TEXT_SECONDARY))
         fsub = QFont(Typography.FONT_TEXT.split(",")[0].strip('"'))
         fsub.setPixelSize(int(rect.height() * 0.11))
         fsub.setWeight(QFont.Weight.Medium)

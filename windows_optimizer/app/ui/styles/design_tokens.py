@@ -96,6 +96,20 @@ class Radius:
     SM, MD, LG, XL, FULL = 6, 10, 14, 20, 999
 
 
+# Активная палитра — чтобы виджеты, рисующие через QPainter (кольцо и т.п.),
+# брали цвета текущей темы, а не жёстко тёмной. Обновляется в MainWindow.set_theme.
+_ACTIVE = Colors
+
+
+def set_active(c) -> None:
+    global _ACTIVE
+    _ACTIVE = c
+
+
+def active():
+    return _ACTIVE
+
+
 def build_qss(c) -> str:
     """Собрать полный QSS из набора цветов c (Colors или ColorsLight)."""
     return f"""
@@ -173,6 +187,9 @@ QPushButton {{
 }}
 QPushButton:hover {{ background-color: {c.BG_OVERLAY}; border-color: {c.BORDER_ACCENT}; }}
 QPushButton:disabled {{ color: {c.TEXT_TERTIARY}; }}
+/* Видимый фокус с клавиатуры (доступность). */
+QPushButton:focus {{ border: 2px solid {c.ACCENT_SECONDARY}; }}
+#Sidebar QPushButton:focus {{ border: none; border-left: 3px solid {c.ACCENT_SECONDARY}; }}
 
 /* Карточки (профили деблоата и т.п.) — стеклянные */
 #Card {{

@@ -284,10 +284,15 @@ class MainWindow(QMainWindow):
         """
         self._theme = name if name in ("dark", "light") else "dark"
         try:
-            from app.ui.styles.design_tokens import Colors, ColorsLight, build_qss
+            from app.ui.styles.design_tokens import Colors, ColorsLight, build_qss, set_active
 
             palette = Colors if self._theme == "dark" else ColorsLight
+            set_active(palette)  # чтобы кольцо/QPainter-виджеты знали тему
             self.setStyleSheet(build_qss(palette))
+            # перерисовать виджеты, рисующие через QPainter
+            self.update()
+            for w in self.findChildren(QWidget):
+                w.update()
             return
         except Exception as e:
             _log.debug("Программная тема не применена, пробую .qss-файл: %s", e)

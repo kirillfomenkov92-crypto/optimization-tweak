@@ -7,38 +7,38 @@ from __future__ import annotations
 
 
 class Colors:
-    # Фоны — многослойность глубины
-    BG_VOID = "#080B14"
-    BG_BASE = "#0D1117"
-    BG_SURFACE = "#161B27"
-    BG_ELEVATED = "#1E2535"
-    BG_OVERLAY = "#252D42"
+    # Фоны — глубокий «космос» с лёгким сине-фиолетовым подтоном (2100/неон)
+    BG_VOID = "#04060E"
+    BG_BASE = "#080B16"
+    BG_SURFACE = "#0E1322"
+    BG_ELEVATED = "#161D33"
+    BG_OVERLAY = "#1F2945"
 
-    # Акценты
-    ACCENT_PRIMARY = "#6C63FF"
-    ACCENT_SECONDARY = "#4FACFE"
-    ACCENT_GLOW = "#6C63FF40"
-    GRADIENT_START = "#6C63FF"
-    GRADIENT_END = "#4FACFE"
+    # Акценты — электрик-виолет → неон-циан (голографический градиент)
+    ACCENT_PRIMARY = "#7C5CFF"
+    ACCENT_SECONDARY = "#22D3FD"
+    ACCENT_GLOW = "#7C5CFF55"
+    GRADIENT_START = "#7C5CFF"
+    GRADIENT_END = "#22D3FD"
 
-    # Семантика
-    SUCCESS = "#00D4AA"
-    WARNING = "#FFB547"
+    # Семантика — неоновые
+    SUCCESS = "#2BF5C8"
+    WARNING = "#FFC24B"
     DANGER = "#FF5C8D"
-    INFO = "#4FACFE"
+    INFO = "#22D3FD"
 
     # Текст
-    TEXT_PRIMARY = "#F0F2F8"
-    TEXT_SECONDARY = "#8B92A5"
-    TEXT_TERTIARY = "#4A5268"
-    TEXT_ACCENT = "#6C63FF"
+    TEXT_PRIMARY = "#EEF2FF"
+    TEXT_SECONDARY = "#8A93B2"
+    TEXT_TERTIARY = "#4C5780"
+    TEXT_ACCENT = "#9B8CFF"
 
     # Границы
-    BORDER_SUBTLE = "#1E2535"
-    BORDER_DEFAULT = "#252D42"
-    BORDER_ACCENT = "#6C63FF50"
+    BORDER_SUBTLE = "#161D33"
+    BORDER_DEFAULT = "#222C49"
+    BORDER_ACCENT = "#7C5CFF66"
 
-    SELECTION = "#6C63FF25"
+    SELECTION = "#7C5CFF2E"
 
 
 class ColorsLight:
@@ -48,16 +48,16 @@ class ColorsLight:
     BG_ELEVATED = "#F8F9FC"
     BG_OVERLAY = "#EEF0F6"
 
-    ACCENT_PRIMARY = "#5B52E8"
-    ACCENT_SECONDARY = "#2E9FE8"
-    ACCENT_GLOW = "#5B52E820"
-    GRADIENT_START = "#5B52E8"
-    GRADIENT_END = "#2E9FE8"
+    ACCENT_PRIMARY = "#6A4CF0"
+    ACCENT_SECONDARY = "#0FB8E6"
+    ACCENT_GLOW = "#6A4CF022"
+    GRADIENT_START = "#6A4CF0"
+    GRADIENT_END = "#0FB8E6"
 
     SUCCESS = "#00B894"
     WARNING = "#E8A33D"
     DANGER = "#E84393"
-    INFO = "#2E9FE8"
+    INFO = "#0FB8E6"
 
     TEXT_PRIMARY = "#0D1117"
     TEXT_SECONDARY = "#5A6273"
@@ -115,26 +115,39 @@ QLabel#CardTitle {{ font-size: {Typography.SIZE_MD}px; font-weight: {Typography.
 QLabel#Subtitle {{ color: {c.TEXT_SECONDARY}; font-size: {Typography.SIZE_SM}px; }}
 
 /* Боковое меню и шапка */
-#Sidebar {{ background-color: {c.BG_VOID}; }}
+#Sidebar {{
+    background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 {c.BG_VOID}, stop:1 {c.BG_BASE});
+    border-right: 1px solid {c.BORDER_SUBTLE};
+}}
 #Sidebar QPushButton {{
     text-align: left; padding: 10px 14px; border: none;
     border-radius: {Radius.MD}px; background: transparent; color: {c.TEXT_SECONDARY};
 }}
 #Sidebar QPushButton:hover {{ background-color: {c.BG_SURFACE}; color: {c.TEXT_PRIMARY}; }}
-#Sidebar QPushButton:checked {{ background-color: {c.BG_ELEVATED}; color: {c.TEXT_PRIMARY}; font-weight: {Typography.WEIGHT_SEMIBOLD}; }}
+#Sidebar QPushButton:checked {{
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 {c.SELECTION}, stop:1 transparent);
+    border-left: 2px solid {c.ACCENT_SECONDARY};
+    color: {c.TEXT_PRIMARY}; font-weight: {Typography.WEIGHT_SEMIBOLD};
+}}
 
 #Header {{ background-color: {c.BG_BASE}; border-bottom: 1px solid {c.BORDER_SUBTLE}; }}
 #Header QPushButton {{ padding: 6px 14px; border-radius: {Radius.FULL}px; color: {c.TEXT_SECONDARY}; background: transparent; }}
 #Header QPushButton:checked {{ background-color: {c.ACCENT_PRIMARY}; color: #FFFFFF; font-weight: {Typography.WEIGHT_SEMIBOLD}; }}
 
-#WorkArea {{ background-color: {c.BG_BASE}; }}
+#WorkArea {{
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
+        stop:0 {c.BG_BASE}, stop:0.55 {c.BG_VOID}, stop:1 {c.BG_BASE});
+}}
 
 /* Строки улучшений */
 #TweakRow {{ background-color: transparent; border-radius: {Radius.MD}px; }}
 #TweakRow:hover {{ background-color: {c.BG_SURFACE}; }}
 
-/* Карточки метрик */
-#MetricCard {{ background-color: {c.BG_SURFACE}; border: 1px solid {c.BORDER_SUBTLE}; border-radius: {Radius.XL}px; padding: 22px 24px; }}
+/* Карточки метрик — «стекло» с лёгким градиентом и акцентной кромкой */
+#MetricCard {{
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {c.BG_SURFACE}, stop:1 {c.BG_ELEVATED});
+    border: 1px solid {c.BORDER_DEFAULT}; border-radius: {Radius.XL}px; padding: 22px 24px;
+}}
 #MetricValue {{ font-size: {Typography.SIZE_XL}px; font-weight: {Typography.WEIGHT_SEMIBOLD}; color: {c.TEXT_PRIMARY}; }}
 #MetricLabel {{ color: {c.TEXT_TERTIARY}; font-size: {Typography.SIZE_XS}px; font-weight: {Typography.WEIGHT_SEMIBOLD}; }}
 
@@ -161,12 +174,13 @@ QPushButton {{
 QPushButton:hover {{ background-color: {c.BG_OVERLAY}; border-color: {c.BORDER_ACCENT}; }}
 QPushButton:disabled {{ color: {c.TEXT_TERTIARY}; }}
 
-/* Карточки (профили деблоата и т.п.) */
+/* Карточки (профили деблоата и т.п.) — стеклянные */
 #Card {{
-    background-color: {c.BG_SURFACE}; border: 1px solid {c.BORDER_DEFAULT};
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {c.BG_SURFACE}, stop:1 {c.BG_ELEVATED});
+    border: 1px solid {c.BORDER_DEFAULT};
     border-radius: {Radius.LG}px; padding: 18px;
 }}
-#Card:hover {{ border-color: {c.BORDER_ACCENT}; }}
+#Card:hover {{ border: 1px solid {c.ACCENT_SECONDARY}; }}
 
 /* Таблицы / списки / деревья */
 QTableWidget, QTreeWidget, QListWidget {{

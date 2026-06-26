@@ -84,6 +84,9 @@ jobs:
       - name: Тесты очистки диска
         run: python tests/test_disk_clean.py
 
+      - name: Смоук всех модулей
+        run: python tests/test_modules_smoke.py
+
       - name: Тесты форматирования строк
         run: python tests/test_row_format.py
 

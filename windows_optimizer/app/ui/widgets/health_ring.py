@@ -37,19 +37,35 @@ class HealthScoreRing(QWidget):
         super().__init__(parent)
         self._value = 0
         self._target = value
+        self._pulse = 0.0  # 0..1 прогресс пульса при росте балла
         self.setMinimumSize(190, 190)
         self._anim = QVariantAnimation(self)
         self._anim.setDuration(1100)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         self._anim.valueChanged.connect(self._on_anim)
+        self._pulse_anim = QVariantAnimation(self)
+        self._pulse_anim.setDuration(900)
+        self._pulse_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._pulse_anim.valueChanged.connect(self._on_pulse)
         self.set_value(value)
 
     def _on_anim(self, v) -> None:
         self._value = int(v)
         self.update()
 
+    def _on_pulse(self, v) -> None:
+        self._pulse = float(v)
+        self.update()
+
     def set_value(self, target: int) -> None:
-        self._target = max(0, min(100, int(target)))
+        target = max(0, min(100, int(target)))
+        # Пульс — только при росте оценки (после оптимизации).
+        if target > self._value:
+            self._pulse_anim.stop()
+            self._pulse_anim.setStartValue(0.0)
+            self._pulse_anim.setEndValue(1.0)
+            self._pulse_anim.start()
+        self._target = target
         self._anim.stop()
         self._anim.setStartValue(self._value)
         self._anim.setEndValue(self._target)
@@ -65,6 +81,15 @@ class HealthScoreRing(QWidget):
                       side - 2 * margin, side - 2 * margin)
         center = rect.center()
         start, end = _score_colors(self._value)
+
+        # Пульс-волна при росте балла — расходится наружу и затухает.
+        if 0.0 < self._pulse < 1.0:
+            grow = (rect.width() * 0.10) * self._pulse
+            pr = rect.adjusted(-grow, -grow, grow, grow)
+            pc = QColor(end); pc.setAlpha(int(120 * (1.0 - self._pulse)))
+            p.setPen(QPen(pc, max(2.0, thickness * (1.0 - self._pulse)),
+                          Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.drawArc(pr, 0, 360 * 16)
 
         # Фоновое кольцо — тонкое, приглушённое.
         p.setPen(QPen(QColor(Colors.BG_ELEVATED), thickness,
